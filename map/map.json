@@ -1,0 +1,28 @@
+{
+  "background_color": [255, 255, 255],
+  "init": {"center": [13518539, 3661176], "res": 305.748113},
+  "data_sources": {
+      "buildings": { "path": "nooffset/buildings.shp","type": "shapefile"},
+      "roads": { "path": "nooffset/roads.shp", "type": "shapefile"}
+  },
+  "layers": {
+      "roads": {
+          "data_source": "roads",
+          "rules": [{
+                  "resolution_max":  620,
+                  "resolution_min": 0,
+                  "line_color": [0, 0, 0],
+                  "line_width": 1
+         }]
+      },
+      "buildings": {
+          "data_source": "buildings",
+          "rules": [{
+              "resolution_max": 620,
+              "resolution_min": 0,
+              "fill_color": [150, 150, 150],
+              "outline_color": [100, 100, 100]
+        }]
+      }
+  }
+}
