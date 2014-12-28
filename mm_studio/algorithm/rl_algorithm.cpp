@@ -38,8 +38,11 @@ RLAlgorithm::RLAlgorithm(int states_number, int actions_number)
 
 void RLAlgorithm::Init(int states_number, int actions_number)
 {
-	
+#ifdef WIN32
+	srand(time(0));
+#else
 	srand48(clock());
+#endif
 	
 #ifdef _TRACE_LOG
     std::cout << "Init q table: " << states_number << " * " << actions_number << std::endl;
@@ -88,8 +91,11 @@ void RLAlgorithm::Explore(const int state, int& action, const double exploration
 
 void RLAlgorithm::egreedy(const int state, int& action, const double epsilon, const std::vector<int>& action_index)
 {
-   // if(RLUtility::RandUnit() < epsilon)
+#ifdef WIN32
+   if(RLUtility::RandUnit() < epsilon)
+#else
    if (drand48() < epsilon)
+#endif
     {
         GetMaxAction(state, action, action_index);
     }
@@ -130,8 +136,11 @@ void RLAlgorithm::GetMaxActionFirst(const int state, int& action, const std::vec
 
 void RLAlgorithm::GetRandomAction(const int state, int& action, const std::vector<int>& action_index)
 {
-    // int index = RLUtility::Rand0A(action_index.size());
+#ifdef WIN32
+    int index = RLUtility::Rand0A(action_index.size());
+#else
     int index = drand48() * (action_index.size() - 1);
+#endif
     action = action_index[index];
 }
 

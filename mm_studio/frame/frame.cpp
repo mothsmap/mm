@@ -87,28 +87,28 @@ Frame::Frame (const wxString& title) : wxFrame (NULL, wxID_ANY, title) {
     
     wxSize button_size (60, 30);
 
-    left_button_ = new wxButton (nivagitor_panel, BUTTON_LEFT, wxT("左移"), wxDefaultPosition, button_size);
-    left_button_->SetToolTip (wxT("左移"));
+    left_button_ = new wxButton (nivagitor_panel, BUTTON_LEFT, wxT("Left"), wxDefaultPosition, button_size);
+    left_button_->SetToolTip (wxT("Move left"));
     left_button_->SetBackgroundColour(*wxBLUE);
     
-    right_button_ = new wxButton (nivagitor_panel, BUTTON_RIGHT, wxString ("右移"), wxDefaultPosition, button_size);
-    right_button_->SetToolTip (wxString ("右移"));
-    right_button_->SetBackgroundColour(*wxBLACK);
+    right_button_ = new wxButton (nivagitor_panel, BUTTON_RIGHT, wxString ("Right"), wxDefaultPosition, button_size);
+    right_button_->SetToolTip (wxString ("Move right"));
+    right_button_->SetBackgroundColour(*wxGREEN);
     
-    up_button_ = new wxButton (nivagitor_panel, BUTTON_UP, wxString ("上移"), wxDefaultPosition, button_size);
-    up_button_->SetToolTip (wxString ("上移"));
+    up_button_ = new wxButton (nivagitor_panel, BUTTON_UP, wxString ("Up"), wxDefaultPosition, button_size);
+    up_button_->SetToolTip (wxString ("Move up"));
     up_button_->SetBackgroundColour(*wxYELLOW);
     
-    down_button_ = new wxButton (nivagitor_panel, BUTTON_DOWN, wxString ("下移"), wxDefaultPosition, button_size);
-    down_button_->SetToolTip (wxString ("下移"));
+    down_button_ = new wxButton (nivagitor_panel, BUTTON_DOWN, wxString ("Down"), wxDefaultPosition, button_size);
+    down_button_->SetToolTip (wxString ("Move down"));
     down_button_->SetBackgroundColour(*wxCYAN);
     
-    zoom_in_button_ = new wxButton (nivagitor_panel, BUTTON_ZOOM_IN, wxString ("放大"), wxDefaultPosition, button_size);
-    zoom_in_button_->SetToolTip (wxString ("放大"));
+    zoom_in_button_ = new wxButton (nivagitor_panel, BUTTON_ZOOM_IN, wxString ("Zoom In"), wxDefaultPosition, button_size);
+    zoom_in_button_->SetToolTip (wxString ("Zoom in"));
     zoom_in_button_->SetBackgroundColour(*wxRED);
     
-    zoom_out_button_ = new wxButton (nivagitor_panel, BUTTON_ZOOM_OUT, wxString ("缩小"), wxDefaultPosition, button_size);
-    zoom_out_button_->SetToolTip (wxString ("缩小"));
+    zoom_out_button_ = new wxButton (nivagitor_panel, BUTTON_ZOOM_OUT, wxString ("Zoom out"), wxDefaultPosition, button_size);
+    zoom_out_button_->SetToolTip (wxString ("Zoom out"));
     zoom_out_button_->SetBackgroundColour(*wxGREEN);
     
     navigator_sizer->Add (left_button_);
@@ -118,7 +118,7 @@ Frame::Frame (const wxString& title) : wxFrame (NULL, wxID_ANY, title) {
     navigator_sizer->Add (zoom_in_button_);
     navigator_sizer->Add (zoom_out_button_);
     
-    promote_text_ = new wxStaticText (nivagitor_panel, wxID_STATIC, wxT ("使用左侧按钮导航地图，双击鼠标左键（右键）进行以鼠标位置为中心的放大（缩小）"), wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE | wxST_NO_AUTORESIZE);
+    promote_text_ = new wxStaticText (nivagitor_panel, wxID_STATIC, wxT ("Use left buttons to navigate, double click left mouse(righ) to zoom in(out)"), wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE | wxST_NO_AUTORESIZE);
     navigator_sizer->Add (promote_text_, 1, wxCENTER);
     nivagitor_panel->SetSizer (navigator_sizer);
     nivagitor_panel->Fit();
@@ -131,37 +131,37 @@ Frame::Frame (const wxString& title) : wxFrame (NULL, wxID_ANY, title) {
     this->Maximize();
 
     wxMenu* fileMenu = new wxMenu;
-    fileMenu->Append (MENU_Open, wxT ("打开路网 ..."), wxT ("Open an existing road network"));
-    fileMenu->Append (MENU_OPEN_ROUTE, wxT ("打开稀疏点轨迹..."), wxT ("Open an existing gps route"));
-    fileMenu->Append(MENU_OPEN_DENSITY_ROUTE, wxT("打开稠密点轨迹..."), wxT("打开稠密点轨迹"));
-    fileMenu->Append (MENU_Quit, wxT ("退出"), wxT ("Quit this program"));
+    fileMenu->Append (MENU_Open, wxT ("Open Map ..."), wxT ("Open an existing road network"));
+    fileMenu->Append (MENU_OPEN_ROUTE, wxT ("Open sparse route..."), wxT ("Open an existing gps route"));
+//    fileMenu->Append(MENU_OPEN_DENSITY_ROUTE, wxT("Open density route..."), wxT("Open density route"));
+    fileMenu->Append (MENU_Quit, wxT ("Quite"), wxT ("Quit this program"));
 
 	wxMenu* mmMenu = new wxMenu;
-	mmMenu->Append(MENU_BUILD_RTREE, wxT ("建立R树"), wxT ("Build RTree for the road network"));
-    mmMenu->Append(MENU_BUILD_GRAPH, wxT("建立有向图"), wxT("Build Graph for the road network"));
-    mmMenu->Append(MENU_FIND_GROUND_TRUTH, wxT("寻找真实路径"), wxT("从稠密点寻找真实路径"));
-	mmMenu->Append(MENU_FIND_LOCATION, wxT ("寻找候选点..."), wxT ("Find candidate points"));
-    mmMenu->Append(MENU_SHORTEST_PATH, wxT("寻找最短路径"), wxT("Find Shortest Path between candidate points"));
-    mmMenu->Append(MENU_RL, wxT("增强学习"), wxT("Learning the global optimal route"));
-    mmMenu->Append(MENU_CLEAR, wxT("清空结果"), wxT("清空当前计算结果"));
+	mmMenu->Append(MENU_BUILD_RTREE, wxT ("Build R Treee"), wxT ("Build RTree for the road network"));
+    mmMenu->Append(MENU_BUILD_GRAPH, wxT("Build Graph"), wxT("Build Graph for the road network"));
+//    mmMenu->Append(MENU_FIND_GROUND_TRUTH, wxT("Find Ground Truth"), wxT("Find Ground Truth"));
+	mmMenu->Append(MENU_FIND_LOCATION, wxT ("Find Candidate points..."), wxT ("Find candidate points"));
+    mmMenu->Append(MENU_SHORTEST_PATH, wxT("Find Nearest route"), wxT("Find Shortest Path between candidate points"));
+    mmMenu->Append(MENU_RL, wxT("Reinforcement Learning"), wxT("Learning the global optimal route"));
+    mmMenu->Append(MENU_CLEAR, wxT("Clear result"), wxT("Clear result"));
     
     wxMenu* settingMenu = new wxMenu;
-    settingMenu->Append (MENU_THREAD_NUMBER, wxT ("线程数..."), wxT ("Set threads number"));
-    settingMenu->Append (MENU_OUTPUT_DIR, wxT ("指定缓存目录..."), wxT ("Set output directory"));
+	settingMenu->Append (MENU_THREAD_NUMBER, wxT ("#Threads..."), wxT ("Set threads number"));
+    settingMenu->Append (MENU_OUTPUT_DIR, wxT ("Cache directory..."), wxT ("Set output directory"));
 
     wxMenu* helpMenu = new wxMenu;
-    helpMenu->Append (MENU_About, wxT ("&关于...\tF1"), wxT ("Show about dialog"));
+    helpMenu->Append (MENU_About, wxT ("&About...\tF1"), wxT ("Show about dialog"));
 
     main_menu_ = new wxMenuBar();
-    main_menu_->Append (fileMenu, wxT ("文件"));
-	main_menu_->Append(mmMenu, wxT("地图匹配"));
-    main_menu_->Append (settingMenu, wxT ("设置"));
-    main_menu_->Append (helpMenu, wxT ("帮助"));
+    main_menu_->Append (fileMenu, wxT ("File"));
+	main_menu_->Append(mmMenu, wxT("MM"));
+    main_menu_->Append (settingMenu, wxT ("Setting"));
+    main_menu_->Append (helpMenu, wxT ("Help"));
 
     SetMenuBar (main_menu_);
 
     CreateStatusBar (2);
-    SetStatusText (wxT ("~~~欢迎~~~请从打开一个地图开始"));
+    SetStatusText (wxT ("~~~Welcome~~~Please open a map"));
 }
 
 void Frame::UpdateStatusBarText(wxString& context) {
@@ -175,7 +175,7 @@ void Frame::UpdateErrorText(const wxString& context) {
 void Frame::mouseWheelMoved(wxMouseEvent& event) {}
 
 void Frame::OnAbout(wxCommandEvent& event) {
-    wxMessageBox (wxT (""), wxT ("~~~地图匹配~~~"), wxOK | wxICON_INFORMATION, this);
+    wxMessageBox (wxT (""), wxT ("~~~MM~~~"), wxOK | wxICON_INFORMATION, this);
 }
 
 void Frame::OnQuit(wxCommandEvent& event) {
@@ -187,7 +187,7 @@ void Frame::OnNewFile(wxCommandEvent& WXUNUSED (event)) {}
 void Frame::OnOpenFile(wxCommandEvent& WXUNUSED (event)) {
     // Get the Map path
     wxString defaultPath = wxT ("/");
-    wxDirDialog dialog (this, wxT ("打开地图目录"), defaultPath, wxDD_NEW_DIR_BUTTON);
+    wxDirDialog dialog (this, wxT ("Open Map directory"), defaultPath, wxDD_NEW_DIR_BUTTON);
 
     if (dialog .ShowModal() == wxID_OK) {
         map_path_ = dialog.GetPath();
@@ -203,7 +203,7 @@ void Frame::OnOpenFile(wxCommandEvent& WXUNUSED (event)) {
         if (!drawPane_->LoadMapDefine (map_path_))
             return;
         
-        SetStatusText("请打开GPS轨迹点");
+        SetStatusText("Please Open GPS　route");
     }
 }
 
@@ -259,7 +259,7 @@ void Frame::OnZoomOut(wxCommandEvent& event) {
 }
 
 void Frame::OnThreadNum (wxCommandEvent& event) {
-    wxNumberEntryDialog dialog(this, wxT ("推荐的线程数为不超过20个."), wxT ("线程数:"), wxT ("设置线程数目"), 8, 1, 16);
+	wxNumberEntryDialog dialog(this, wxT ("set thread number."), wxT ("#Threads:"), wxT ("Threads"), 8, 1, 16);
 
     if (dialog .ShowModal() == wxID_OK) {
         drawPane_->SetThreadNum (dialog.GetValue());
@@ -268,7 +268,7 @@ void Frame::OnThreadNum (wxCommandEvent& event) {
 
 void Frame::OnOpenRoute(wxCommandEvent& event) {
 	wxString defaultPath = wxT ("/");
-	wxString caption = wxT("打开GPS轨迹的shapefile文件");
+	wxString caption = wxT("Open GPS route");
 	wxString wildcard = wxT("SHP files(*.shp)|*.shp");
 	
 	wxFileDialog dialog (this, caption, wxEmptyString, wxEmptyString, wildcard);
@@ -276,33 +276,33 @@ void Frame::OnOpenRoute(wxCommandEvent& event) {
     if (dialog .ShowModal() == wxID_OK) {
 		bool status = drawPane_->LoadRoute (dialog.GetPath().ToStdString());
 		if (!status)
-			wxMessageBox(wxT("打开失败!"), wxT("错误"));
+			wxMessageBox(wxT("Open fail!"), wxT("Error"));
     }
 
 	drawPane_->Refresh();
-    SetStatusText("数据准备完毕！请建立R树");
+    SetStatusText("Data completed! Pease build R Tree");
 }
 
 void Frame::OnBuildRtree(wxCommandEvent& event) {
     wxWindowDisabler disableAll;
-    wxBusyInfo info(wxT("建立R树中，请耐心等待..."), this);
+    wxBusyInfo info(wxT("Building R Tree, this may take several seconds..."), this);
     bool status = drawPane_->BuildRTree (map_path_.ToStdString());
     if (!status) {
-        wxMessageBox(wxT("建立R树失败!"), wxT("错误"));
-        SetStatusText("！建立R树失败！");
+        wxMessageBox(wxT("fail!"), wxT("error"));
+        SetStatusText("Build R Tree fail!");
     } else {
-        SetStatusText("建立R树成功！请建立有向图");
+        SetStatusText("Building R Tree success! Please build graph");
     }
 }
 
 void Frame::OnBuildGraph(wxCommandEvent& event) {
     bool status = drawPane_->BuildGraph (map_path_.ToStdString());
     if (!status) {
-        wxMessageBox(wxT("建立有向图失败!"), wxT("错误"));
-        SetStatusText("！建立有向图失败!");
+        wxMessageBox(wxT("fail!"), wxT("error"));
+        SetStatusText("Build Graph fail!");
     } else {
-        wxMessageBox (wxT ("建立有向图成功！"), wxT ("提示"), wxOK | wxICON_INFORMATION, this);
-        SetStatusText("建立有向图成功！请寻找GPS轨迹点的候选点");
+        wxMessageBox (wxT ("Build Graph success"), wxT ("Info"), wxOK | wxICON_INFORMATION, this);
+        SetStatusText("Build graph success! Please find candidate points");
     }
 }
 
@@ -316,12 +316,12 @@ void Frame::OnFindLocation(wxCommandEvent& event) {
 		if (!drawPane_->LocatePoints(value))
 			wxMessageBox(wxT("No line near to a point!"), wxT("Warnning"));
         
-        wxMessageBox (wxT ("寻找候选点成功！"), wxT ("提示"), wxOK | wxICON_INFORMATION, this);
+        wxMessageBox (wxT ("Find candidate points success!"), wxT ("Info"), wxOK | wxICON_INFORMATION, this);
         
 		drawPane_->Refresh();
 	//}
     
-    SetStatusText("寻找候选点成功！请计算候选点之间的最短路径");
+    SetStatusText("Find candidate points success! Please find nearest routes");
 }
 
 void Frame::OnOutputDir (wxCommandEvent& event)
@@ -337,11 +337,11 @@ void Frame::OnOutputDir (wxCommandEvent& event)
 
 void Frame::OnShortestPath(wxCommandEvent& event) {
     if (!drawPane_->ShortestPath(map_path_.ToStdString())) {
-        wxMessageBox(wxT("计算最短路径失败!"), wxT("警告"));
-        SetStatusText("！计算最短路径失败！");
+        wxMessageBox(wxT("fail!"), wxT("Warning"));
+        SetStatusText("Calculate shortest path fail!");
     } else {
-        wxMessageBox (wxT ("计算最短路径成功！"), wxT ("提示"), wxOK | wxICON_INFORMATION, this);
-        SetStatusText("计算最短路径成功！请开始增强学习得到匹配轨迹！");
+        wxMessageBox (wxT ("success!"), wxT ("Info"), wxOK | wxICON_INFORMATION, this);
+        SetStatusText("find nearest routes success! Please start reinforcement learning");
     }
 }
 void Frame::OnSaveGraph(wxCommandEvent& event) {
@@ -353,16 +353,16 @@ void Frame::OnLoadGraph(wxCommandEvent& event) {
 
 void Frame::OnRL(wxCommandEvent& event) {
     wxWindowDisabler disableAll;
-    wxBusyInfo info(wxT("增强学习求解中，请耐心等待..."), this);
+    wxBusyInfo info(wxT("Learning..."), this);
     
     bool result = drawPane_->RL();
     
     if (!result)
-        wxMessageBox (wxT ("初始化增强学习模型失败！"), wxT ("提示"), wxOK | wxICON_INFORMATION, this);
+        wxMessageBox (wxT ("fail!"), wxT ("Info"), wxOK | wxICON_INFORMATION, this);
     
     drawPane_->Refresh();
     
-    SetStatusText("增强学习结束");
+    SetStatusText("Done");
 }
 
 void Frame::OnKeyStroke(wxKeyEvent& event) {
@@ -384,7 +384,7 @@ void Frame::OnClear(wxCommandEvent& event) {
 
 void Frame::OnOpenDensityRoute(wxCommandEvent& event) {
     wxString defaultPath = wxT ("/");
-    wxString caption = wxT("打开GPS轨迹的shapefile文件");
+    wxString caption = wxT("Open GPS route");
     wxString wildcard = wxT("SHP files(*.shp)|*.shp");
     
     wxFileDialog dialog (this, caption, wxEmptyString, wxEmptyString, wildcard);
@@ -392,7 +392,7 @@ void Frame::OnOpenDensityRoute(wxCommandEvent& event) {
     if (dialog .ShowModal() == wxID_OK) {
         bool status = drawPane_->LoadDensityRoute(dialog.GetPath().ToStdString());
         if (!status)
-            wxMessageBox(wxT("打开失败!"), wxT("错误"));
+            wxMessageBox(wxT("Open fail!"), wxT("error"));
     }
     
     drawPane_->Refresh();
