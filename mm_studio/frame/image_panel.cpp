@@ -372,8 +372,36 @@ void wxImagePanel::render (wxDC&  dc) {
                 points_in_path_of_screen.push_back(pos);
             }
             
+            double al = 10;
+            double aw = 5;
+            
             for (int j = 0; j < points_in_path_of_screen.size() - 1; j += 2) {
+                //dc.DrawLine(points_in_path_of_screen[j], points_in_path_of_screen[j + 1]);
+                double x1 = points_in_path_of_screen[j].x;
+                double y1 = points_in_path_of_screen[j].y;
+                double x2 = points_in_path_of_screen[j + 1].x;
+                double y2 = points_in_path_of_screen[j + 1].y;
+                
+                double dist_x = x2 - x1;
+                double dist_y = y2 - y1;
+                
+                double dist = dist_x * dist_x + dist_y * dist_y;
+                double length = sqrt(dist);
+                
+                if (length <= 0.001)
+                    continue;
+                
+                double x = dist_x / length;
+                double y = dist_y / length;
+                
+                wxPoint base(x2 - x * al, y2 - y * al);
+                wxPoint back_top(base.x - aw * y, base.y + aw * x);
+                wxPoint back_bottom(base.x + aw * y, base.y - aw * x);
+                
                 dc.DrawLine(points_in_path_of_screen[j], points_in_path_of_screen[j + 1]);
+                dc.DrawLine(points_in_path_of_screen[j + 1], back_bottom);
+                dc.DrawLine(points_in_path_of_screen[j + 1], back_top);
+                
             }
         }
 #if PRINT_INFO
