@@ -148,11 +148,20 @@ bool ShapefileGraph::ComputeShortestPath(std::string map_dir) {
         std::vector<double> distances(boost::num_vertices(graph_)); // To store distances
         
         // Compute shortest paths from v0 to all vertices, and store the output in parents and distances
+		/*
         boost::dijkstra_shortest_paths(graph_,
                                        *(from_vertex),
                                        boost::predecessor_map(&parents[0])
                                        .distance_map(&distances[0])
+                                       .weight_map(get(&EdgeProperties::weight_, graph_)));*/
+		boost::dijkstra_shortest_paths(graph_,
+                                       *(from_vertex),
+                                       boost::predecessor_map(&parents[0])
+									   .distance_map(boost::make_iterator_property_map(distances.begin(), 
+									   get(boost::vertex_index, graph_)))
                                        .weight_map(get(&EdgeProperties::weight_, graph_)));
+
+		
         
         for (Graph::vertex_iterator to_vertex = vertex_iterator_range.first; to_vertex != vertex_iterator_range.second; ++to_vertex) {
             if (graph_[*to_vertex].gps_id_ != (graph_[*from_vertex].gps_id_ + 1))
