@@ -106,6 +106,21 @@ else()
     set(PROTOBUF_LITE_LIBRARY CACHE FILEPATH "Protobuf library, e.g. path_to/#libprotobuf-lite.lib or libprotobuf-lite.a")
 endif()
 
+if (UNIX)
+    # freeimage
+    find_package(FreeImage REQUIRED)
+    # glew
+    find_package(GLEW REQUIRED)
+
+    # libtess2
+    set(TESS2_INCLUDES "")
+    set(TESS2_LIB "${EXT_LIBRIES_DIR}/libtess2/liblibtess2.a")
+
+    # glfw
+    set(GLFW_INCLUDES "")
+    set(GLFW_LIB "${EXT_LIBRIES_DIR}/glfw3/libglfw3.a")
+endif()
+
 
 include_directories(
 ${PROTOBUF_INCLUDE_DIRS}
@@ -113,6 +128,7 @@ ${Boost_INCLUDE_DIRS}
 ${GDAL_INCLUDE_DIR}
 ${GEOS_INCLUDE_DIR}
 ${SKIA_INCLUDE_DIRS}
+${GLEW_INCLUDE_DIRS}
 ${FreeImage_INCLUDE_DIRS}
 ${EXT_LIBRIES_DIR}/rapidjson/include/
 ${CMAKE_SOURCE_DIR}/mapping_core/
@@ -126,6 +142,10 @@ ${SKIA_LIBRARIES}
 ${PROTOBUF_LITE_LIBRARY}
 ${MAPPING_LIB}
 ${wxWidgets_LIBRARIES}
+${TESS2_LIB}
+${GLFW_LIB}
+${GLEW_LIBRARIES}
+${FreeImage_LIBRARIES}
 "-framework OpenGL"
 "-framework Foundation"
 "-framework Cocoa"
