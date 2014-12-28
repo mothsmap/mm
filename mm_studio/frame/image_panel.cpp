@@ -341,7 +341,8 @@ void wxImagePanel::render (wxDC&  dc) {
     if (mm_->parsing_result_valid()) {
         wxPen pen(*wxCYAN);
         pen.SetWidth(3);
-        dc.SetPen(pen);
+        wxPen red_pen(*wxRED);
+        red_pen.SetWidth(2);
         
 #if PRINT_INFO
         std::ofstream ofs(map_dir_ + "/result.txt");
@@ -376,6 +377,12 @@ void wxImagePanel::render (wxDC&  dc) {
             double aw = 5;
             
             for (int j = 0; j < points_in_path_of_screen.size() - 1; j += 2) {
+                if (j == 0) {
+                    dc.SetPen(*wxYELLOW_PEN);
+                    dc.SetBrush(*wxRED_BRUSH);
+                    dc.DrawCircle(points_in_path_of_screen[0], 8);
+                }
+                
                 //dc.DrawLine(points_in_path_of_screen[j], points_in_path_of_screen[j + 1]);
                 double x1 = points_in_path_of_screen[j].x;
                 double y1 = points_in_path_of_screen[j].y;
@@ -398,7 +405,11 @@ void wxImagePanel::render (wxDC&  dc) {
                 wxPoint back_top(base.x - aw * y, base.y + aw * x);
                 wxPoint back_bottom(base.x + aw * y, base.y - aw * x);
                 
+                dc.SetPen(pen);
                 dc.DrawLine(points_in_path_of_screen[j], points_in_path_of_screen[j + 1]);
+                
+                dc.SetPen(red_pen);
+                dc.DrawLine(base, points_in_path_of_screen[j + 1]);
                 dc.DrawLine(points_in_path_of_screen[j + 1], back_bottom);
                 dc.DrawLine(points_in_path_of_screen[j + 1], back_top);
                 
