@@ -713,7 +713,13 @@ void wxImagePanel::CalculateGroundTruth() {
             }
         }
         
-        ground_truth_.push_back(best_geometry);
+        if (ground_truth_.size() == 0) {
+            ground_truth_.push_back(best_geometry);
+        } else {
+            if (best_geometry != ground_truth_[ground_truth_.size() - 1])
+                ground_truth_.push_back(best_geometry);
+        }
+
     }
 }
 
