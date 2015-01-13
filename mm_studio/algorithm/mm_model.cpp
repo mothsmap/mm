@@ -30,12 +30,13 @@ void MM::Clear() {
     action_list_.clear();
 }
 
-bool MM::InitModel(boost::shared_ptr<Route> route, std::vector<std::vector<wxPoint2DDouble> >& candidate_points, std::vector<ShortestPath>& shortest_paths) {
+bool MM::InitModel(boost::shared_ptr<RTree> tree, boost::shared_ptr<Route> route, std::vector<std::vector<wxPoint2DDouble> >& candidate_points, std::vector<ShortestPath>& shortest_paths) {
     // clear previous state
     Clear();
     
+    tree_ = tree;
     route_ = route;
-    
+#if 0
     // 计算候选点到gps点的最大距离
     max_candidate_distance_ = 0;
     min_candidate_distance_ = 1e6;
@@ -79,7 +80,7 @@ bool MM::InitModel(boost::shared_ptr<Route> route, std::vector<std::vector<wxPoi
     std::cout << "max route length: " << max_route_length_ << std::endl;
     std::cout << "min route length: " << min_route_length_ << std::endl;
 #endif
-    
+#endif
     // 添加虚拟的初始点
     initial_state_size_ = candidate_points[0].size();
     for (int i = 0; i < initial_state_size_; ++i) {
@@ -89,7 +90,7 @@ bool MM::InitModel(boost::shared_ptr<Route> route, std::vector<std::vector<wxPoi
         sp.from_vertex_id_ = -1;
         sp.from_vertex_location_x_ = -1;
         sp.from_vertex_location_y_ = -1;
-        sp.length_ = min_route_length_;
+        sp.length_ = 0;
         sp.nodes_.resize(1);
         sp.to_vertex_gps_id_ = 0;
         sp.to_vertex_candidate_id_ = i;
@@ -351,34 +352,31 @@ double MM::RunTask(State& state) {
         next_state_index = state_to_index_.at(next_state);
         
         // 记录该状态
-        //if (record_) {
-        //    parsing_result_.push_back(next_state);
+        if (record_) {
+            parsing_result_.push_back(next_state);
             action_list_.push_back(action);
-        //}
+        }
         
         // 计算得分
         double x1, y1;
         route_->getRouteVertex(action.to_vertex_gps_id_, x1, y1);
-        double candidate_score = (Distance2(action.to_vertex_location_x_, action.to_vertex_location_y_, x1, y1) - min_candidate_distance_) / (max_candidate_distance_ - min_candidate_distance_);
+        double dist_score = Distance2(action.to_vertex_location_x_, action.to_vertex_location_y_, x1, y1);
+        double route_score = action.length_;
+        double segment_score = 0;
+        for (int i = 0; i < action.path_.size(); ++i) {
+            int travel_count = tree_->GetRoadInfo(action.path_[i]).travel_counts_;
+            segment_score += travel_count;
+        }
         
-        double route_score = (action.length_ - min_route_length_) / (max_route_length_ - min_route_length_);
+        double k_dist = 50;
+        double k_route = 1.0;
+        double k_seg = -25;
         
-       // std::cout << 1.0 - candidate_score << std::endl;
-       // std::cout << 1.0 - route_score << std::endl;
-        
-        episode_score = episode_score + 0.4 * (1.0 - candidate_score) + 0.2 * (1.0 - route_score);
+        episode_score = episode_score + k_dist * dist_score + k_route * route_score + k_seg * segment_score;
         
         // 改状态是否是终止状态？
         if (next_state.gps_id_ == terminal_state_) {
             end_of_task = true;
-
-            double similarity_score = 0.4 * CalculateSimilarity();
-            
-            std::cout << "除去相似性得得分: " << episode_score << std::endl;
-            std::cout << "相似性得分：" << similarity_score << std::endl;
-            
-            // 评价整条路径的相似度
-            episode_score += similarity_score;
             
             
             score = episode_score;
@@ -426,45 +424,4 @@ bool MM::parsing_result_valid() {
     }
     
     return true;
-}
-
-double MM::CalculateSimilarity() {
-    // 首先找到所有候选点到gps点的距离
-    std::vector<double> distances;
-    for (int i = 0; i < action_list_.size(); ++i) {
-        assert(i == action_list_[i].to_vertex_gps_id_);
-        
-        double gps_x, gps_y;
-        route_->getRouteVertex(action_list_[i].to_vertex_gps_id_, gps_x, gps_y);
-        double dis = Distance2(gps_x, gps_y, action_list_[i].to_vertex_location_x_, action_list_[i].to_vertex_location_y_);
-        distances.push_back(dis);
-    }
-    
-    // 计算距离的平均值
-    double ave_dis = 0;
-    for (int i = 0; i < distances.size(); ++i) {
-        ave_dis += distances[i];
-    }
-    ave_dis = ave_dis / distances.size();
-    
-    // 距离平均值的最大最小值
-    double max_to_ave_dis = (distances[0] - ave_dis) * (distances[0] - ave_dis);
-    double min_to_ave_dis = max_to_ave_dis;
-    for (int i = 1; i < distances.size(); ++i) {
-        double to_ave_dis = (distances[i] - ave_dis) * (distances[i] - ave_dis);
-        if (max_to_ave_dis < to_ave_dis)
-            max_to_ave_dis = to_ave_dis;
-        if (min_to_ave_dis > to_ave_dis)
-            min_to_ave_dis = to_ave_dis;
-    }
-    
-    // 计算归一化标准差
-    double S= 0;
-    for (int i = 0; i < distances.size(); ++i) {
-        double to_ave_dis = (distances[i] - ave_dis) * (distances[i] - ave_dis);
-        double offset_persent = (to_ave_dis - min_to_ave_dis) / (max_to_ave_dis - min_to_ave_dis);
-        S = S + (1.0 - offset_persent);
-    }
-
-    return S;
 }

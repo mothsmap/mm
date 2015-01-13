@@ -115,6 +115,7 @@ void wxImagePanel::SetResolution (int level) {
     if (level >= lod_->GetResolutionLevel())
         level = lod_->GetResolutionLevel() - 1;
     
+    std::cout << "current level: " << level << std::endl;
     current_lod_ = level;
 }
 
@@ -206,8 +207,10 @@ wxImagePanel::wxImagePanel(wxFrame* parent) : wxPanel (parent) {
     
     ready_for_cache_ = false;
 
+    candinate_points_.clear();
 	tree_ = boost::shared_ptr<RTree>(new RTree);
 	route_ = boost::shared_ptr<Route>(new Route);
+    density_route_ = boost::shared_ptr<Route>(new Route);
     shapefile_graph_ = boost::shared_ptr<ShapefileGraph>(new ShapefileGraph);
     mm_ = boost::shared_ptr<MM>(new MM);
 }
@@ -284,13 +287,25 @@ wxPoint wxImagePanel::CalculatePos(double x, double y) {
  */
 void wxImagePanel::render (wxDC&  dc) {
     dc.GetSize (&w_, &h_);
-    
+#if 1
     // base map tile
     if (ready_for_cache_) {
         MuiltyThreadCache (dc);
     }
-    
+#endif
     // taxi route
+    if (!density_route_->isEmpty()) {
+        const std::vector<wxPoint2DDouble>& points = density_route_->getRoute();
+        for (int i = 0; i < points.size(); ++i) {
+            // calculate pos
+            wxPoint pos = CalculatePos(points[i].m_x, points[i].m_y);
+            
+            dc.SetPen(*wxRED_PEN);
+            dc.SetBrush(*wxYELLOW);
+            dc.DrawCircle(pos, 1);
+        }
+    }
+    
     if (!route_->isEmpty()) {
         const std::vector<wxPoint2DDouble>& points = route_->getRoute();
         for (int i = 0; i < points.size(); ++i) {
@@ -299,12 +314,11 @@ void wxImagePanel::render (wxDC&  dc) {
             
             dc.SetPen(*wxGREEN_PEN);
             dc.SetBrush(*wxRED_BRUSH);
-            dc.DrawCircle(pos, 3);
+            dc.DrawCircle(pos, 5);
         }
     }
-    
-    
-    if (ground_truth_.size() > 0) {
+
+    if (ground_truth_.size() > 0 && !mm_->parsing_result_valid()) {
         wxPen pen(*wxBLUE_PEN);
         pen.SetWidth(3);
         
@@ -324,6 +338,7 @@ void wxImagePanel::render (wxDC&  dc) {
             dc.DrawLine(pos1, pos2);
         }
     }
+
     
     // parsing result
     if (mm_->parsing_result_valid()) {
@@ -365,13 +380,14 @@ void wxImagePanel::render (wxDC&  dc) {
             double aw = 5;
             
             for (int j = 0; j < points_in_path_of_screen.size() - 1; j += 2) {
-                if (j == 0) {
-                    dc.SetPen(*wxYELLOW_PEN);
-                    dc.SetBrush(*wxRED_BRUSH);
-                    dc.DrawCircle(points_in_path_of_screen[0], 8);
-                }
+//                if (j == 0) {
+//                    dc.SetPen(*wxYELLOW_PEN);
+//                    dc.SetBrush(*wxRED_BRUSH);
+//                    dc.DrawCircle(points_in_path_of_screen[0], 8);
+//                }
                 
-                //dc.DrawLine(points_in_path_of_screen[j], points_in_path_of_screen[j + 1]);
+                dc.DrawLine(points_in_path_of_screen[j], points_in_path_of_screen[j + 1]);
+#if 0
                 double x1 = points_in_path_of_screen[j].x;
                 double y1 = points_in_path_of_screen[j].y;
                 double x2 = points_in_path_of_screen[j + 1].x;
@@ -400,6 +416,7 @@ void wxImagePanel::render (wxDC&  dc) {
                 dc.DrawLine(base, points_in_path_of_screen[j + 1]);
                 dc.DrawLine(points_in_path_of_screen[j + 1], back_bottom);
                 dc.DrawLine(points_in_path_of_screen[j + 1], back_top);
+#endif
                 
             }
         }
@@ -421,11 +438,8 @@ void wxImagePanel::render (wxDC&  dc) {
             for (int j = 0; j < points.size(); ++j){
                 wxPoint pos = CalculatePos(points[j].m_x, points[j].m_y);
                 
-                dc.SetPen(*wxRED_PEN);
+                dc.SetPen(*wxBLUE_PEN);
                 dc.DrawCircle(pos, 3);
-                
-                //dc.SetPen(pen);
-                //dc.DrawText(wxString("P" + boost::lexical_cast<std::string>(i) + "-" + boost::lexical_cast<std::string>(j)), pos.x + 5, pos.y);
             }
         }
     }
@@ -491,9 +505,10 @@ void wxImagePanel::MuiltyThreadCache (wxDC& dc) {
         int image_pos_x = tile_offset.m_x / lod_->GetResolutionByLevel(current_lod_);
         int image_pos_y = tile_offset.m_y / lod_->GetResolutionByLevel(current_lod_);
         
+        std::cout << "image x: " << image_pos_x << ", image y: " << image_pos_y << std::endl;
         std::string tile_path = out_dir_ + "/" + boost::lexical_cast<std::string>(current_lod_)
         + "_" + boost::lexical_cast<std::string>(row) + "_" + boost::lexical_cast<std::string>(col) + ".png";
-        
+        std::cout << "tile path: " << tile_path << std::endl;
         bool file_exits = boost::filesystem::exists (tile_path);
         if (file_exits) {
             wxImage tile_png;
@@ -533,13 +548,13 @@ bool wxImagePanel::LoadRoute(std::string filename) {
 }
 
 bool wxImagePanel::LoadDensityRoute(std::string filename) {
-    route_->Reset();
-    if (!route_->Load(filename)) {
+    density_route_->Reset();
+    if (!density_route_->Load(filename)) {
         return false;
     }
     
     // resample
-    route_->Resample(15);
+    density_route_->Resample(15);
     return true;
 }
 
@@ -663,7 +678,7 @@ void wxImagePanel::CalculateGroundTruth() {
     double na = 4;
     
     ground_truth_.clear();
-    const std::vector<wxPoint2DDouble>& points = route_->getRoute();
+    const std::vector<wxPoint2DDouble>& points = density_route_->getRoute();
     
     for (int i = 0; i < points.size(); ++i) {
         // Find nearest road to this point
@@ -719,7 +734,11 @@ void wxImagePanel::CalculateGroundTruth() {
             if (best_geometry != ground_truth_[ground_truth_.size() - 1])
                 ground_truth_.push_back(best_geometry);
         }
-
+    }
+    
+    // 更新历史经验库
+    for (int i = 0; i < ground_truth_.size(); ++i) {
+        tree_->TravelEdge(ground_truth_[i]);
     }
 }
 
@@ -745,7 +764,7 @@ void wxImagePanel::LoadGraph(std::string filename) {
 void wxImagePanel::OnEraseBackground (wxEraseEvent& event) {}
 
 bool wxImagePanel::RL() {
-    if (!mm_->InitModel(route_, candinate_points_, shapefile_graph_->GetShortestPaths()))
+    if (!mm_->InitModel(tree_, route_, candinate_points_, shapefile_graph_->GetShortestPaths()))
         return false;
     
     double score = 0;

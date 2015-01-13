@@ -255,11 +255,15 @@ void Frame::OnRight(wxCommandEvent& WXUNUSED (event)) {
 }
 
 void Frame::OnZoomIn(wxCommandEvent& event) {
+    std::cout << "Zoom in!\n";
+    std::cout << drawPane_->GetResolution() << std::endl;
     drawPane_->SetResolution (drawPane_->GetResolution() + 1);
     drawPane_->Refresh();
 }
 
 void Frame::OnZoomOut(wxCommandEvent& event) {
+    std::cout << "Zoom out!\n";
+    std::cout << drawPane_->GetResolution() << std::endl;
     drawPane_->SetResolution (drawPane_->GetResolution() - 1);
     drawPane_->Refresh();
 }

@@ -65,7 +65,7 @@ public:
     void CalculateGroundTruth();
     
     // Access
-    inline int GetResolution() { return current_lod_; }
+    inline int GetResolution() { std::cout << "get current lod: " << current_lod_ << std::endl; return current_lod_; }
     inline wxRect2DDouble& GetDisplayBoundary() { return display_boundary_; }
     inline void SetThreadNum (int n) { specified_thread_number_ = n; }
     inline void SetOutputDir (wxString dir) { out_dir_ = dir; }
@@ -84,7 +84,8 @@ private:
     // Sparse route
 	boost::shared_ptr<Route> route_;
     // Density route
-    //boost::shared_ptr<Route> density_route_;
+    boost::shared_ptr<Route> density_route_;
+    
     std::vector<int> ground_truth_;
     
     boost::shared_ptr<ShapefileGraph> shapefile_graph_;

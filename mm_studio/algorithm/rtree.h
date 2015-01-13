@@ -5,6 +5,7 @@
 struct RoadInfo {
     //std::string name_;
     int oneway_;
+    int travel_counts_;
 };
 
 enum QueryType {
@@ -25,6 +26,7 @@ public:
     inline BoostPoint GetNode(int id) { return nodes_.at(id); }
     inline RoadInfo GetRoadInfo(int id) { return info_.at(id); }
     
+    void TravelEdge(int id);
 private:
     bool AddNodes(std::string map_dir);
     bool AddEdges(std::string map_dir);

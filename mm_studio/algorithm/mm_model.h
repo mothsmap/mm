@@ -4,6 +4,7 @@
 #include "rl_algorithm.h"
 #include "shapefile_graph.h"
 #include "route.h"
+#include "rtree.h"
 #include <map>
 #include <stack>
 
@@ -50,7 +51,7 @@ struct State {
 class MM : public RLAlgorithm {
 public:
     MM();
-    bool InitModel(boost::shared_ptr<Route> route, std::vector<std::vector<wxPoint2DDouble> >& candidate_points, std::vector<ShortestPath>& shortest_paths);
+    bool InitModel(boost::shared_ptr<RTree> tree, boost::shared_ptr<Route> route, std::vector<std::vector<wxPoint2DDouble> >& candidate_points, std::vector<ShortestPath>& shortest_paths);
 
     ~MM();
 
@@ -71,8 +72,6 @@ public:
     inline std::vector<State>& get_parsing_result() { return parsing_result_; }
     bool parsing_result_valid();
     
-    double CalculateSimilarity();
-    
     void Clear();
 protected:
     //! Reset the model.
@@ -91,6 +90,7 @@ protected:
     bool InitSymbolSuitableActions();
 
 private:
+    boost::shared_ptr<RTree> tree_;
     boost::shared_ptr<Route> route_;
     double max_route_length_, min_route_length_,  max_candidate_distance_, min_candidate_distance_;
     

@@ -77,6 +77,7 @@
             // info
             RoadInfo info;
             info.oneway_ = feature->GetFieldAsInteger("oneway");
+            info.travel_counts_ = 0;
             //info.name_ = feature->GetFieldAsString("name");
             info_.insert(std::make_pair(feature_count, info));
 
@@ -126,3 +127,8 @@
 
 		return results;
 	}
+
+void RTree::TravelEdge(int id) {
+    info_[id].travel_counts_++;
+    std::cout << "Edge " << id << " travel count = " << info_[id].travel_counts_ << std::endl;
+}
