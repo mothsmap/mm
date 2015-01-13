@@ -5,6 +5,7 @@
 #include "wx/busyinfo.h"
 #include "boost/filesystem.hpp"
 
+// 菜单项ID
 enum {
     TEXT_Main = wxID_HIGHEST + 1, // declares an id which will be used to call our button
     MENU_New,
@@ -41,10 +42,10 @@ enum {
     KEY_STROKE
 };
 
+// 地图移动的步长（像素）
 #define MOVE_TOL 50
 
-//IMPLEMENT_CLASS(Frame, wxFrame)
-
+// 事件表，将菜单项和响应函数绑定
 BEGIN_EVENT_TABLE (Frame, wxFrame)
     EVT_MENU (MENU_New, Frame::OnNewFile)
     EVT_MENU (MENU_Open, Frame::OnOpenFile)
@@ -76,11 +77,14 @@ BEGIN_EVENT_TABLE (Frame, wxFrame)
 //	EVT_ERASE_BACKGROUND(Frame::OnEraseBackground)
 END_EVENT_TABLE()
 
+// 窗体类构造函数
 Frame::Frame (const wxString& title) : wxFrame (NULL, wxID_ANY, title) {
+    // 初始化地图panel
     drawPane_ = new wxImagePanel (this);
 
     Connect(KEY_STROKE, wxEVT_KEY_DOWN, wxKeyEventHandler(Frame::OnKeyStroke));
     
+    // 导航按钮
     wxBoxSizer* navigator_sizer = new wxBoxSizer (wxHORIZONTAL);
     wxPanel* nivagitor_panel = new wxPanel (this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxSUNKEN_BORDER | wxTAB_TRAVERSAL);
     nivagitor_panel->SetBackgroundColour (wxColour ("WHITE"));
@@ -130,16 +134,17 @@ Frame::Frame (const wxString& title) : wxFrame (NULL, wxID_ANY, title) {
     SetSizer (map_sizer);
     this->Maximize();
 
+    // 菜单项
     wxMenu* fileMenu = new wxMenu;
     fileMenu->Append (MENU_Open, wxT ("Open Map ..."), wxT ("Open an existing road network"));
     fileMenu->Append (MENU_OPEN_ROUTE, wxT ("Open sparse route..."), wxT ("Open an existing gps route"));
-//    fileMenu->Append(MENU_OPEN_DENSITY_ROUTE, wxT("Open density route..."), wxT("Open density route"));
+    fileMenu->Append(MENU_OPEN_DENSITY_ROUTE, wxT("Open density route..."), wxT("Open density route"));
     fileMenu->Append (MENU_Quit, wxT ("Quite"), wxT ("Quit this program"));
 
 	wxMenu* mmMenu = new wxMenu;
 	mmMenu->Append(MENU_BUILD_RTREE, wxT ("Build R Treee"), wxT ("Build RTree for the road network"));
     mmMenu->Append(MENU_BUILD_GRAPH, wxT("Build Graph"), wxT("Build Graph for the road network"));
-//    mmMenu->Append(MENU_FIND_GROUND_TRUTH, wxT("Find Ground Truth"), wxT("Find Ground Truth"));
+    mmMenu->Append(MENU_FIND_GROUND_TRUTH, wxT("Find Ground Truth"), wxT("Find Ground Truth"));
 	mmMenu->Append(MENU_FIND_LOCATION, wxT ("Find Candidate points..."), wxT ("Find candidate points"));
     mmMenu->Append(MENU_SHORTEST_PATH, wxT("Find Nearest route"), wxT("Find Shortest Path between candidate points"));
     mmMenu->Append(MENU_RL, wxT("Reinforcement Learning"), wxT("Learning the global optimal route"));
@@ -184,6 +189,7 @@ void Frame::OnQuit(wxCommandEvent& event) {
 
 void Frame::OnNewFile(wxCommandEvent& WXUNUSED (event)) {}
 
+// 打开地图
 void Frame::OnOpenFile(wxCommandEvent& WXUNUSED (event)) {
     // Get the Map path
     wxString defaultPath = wxT ("/");
@@ -266,6 +272,7 @@ void Frame::OnThreadNum (wxCommandEvent& event) {
     }
 }
 
+// 打开稀疏点轨迹
 void Frame::OnOpenRoute(wxCommandEvent& event) {
 	wxString defaultPath = wxT ("/");
 	wxString caption = wxT("Open GPS route");
@@ -283,6 +290,31 @@ void Frame::OnOpenRoute(wxCommandEvent& event) {
     SetStatusText("Data completed! Pease build R Tree");
 }
 
+// 打开稀疏点
+void Frame::OnOpenDensityRoute(wxCommandEvent& event) {
+    wxString defaultPath = wxT ("/");
+    wxString caption = wxT("Open GPS route");
+    wxString wildcard = wxT("SHP files(*.shp)|*.shp");
+    
+    wxFileDialog dialog (this, caption, wxEmptyString, wxEmptyString, wildcard);
+    
+    if (dialog .ShowModal() == wxID_OK) {
+        bool status = drawPane_->LoadDensityRoute(dialog.GetPath().ToStdString());
+        if (!status)
+            wxMessageBox(wxT("Open fail!"), wxT("error"));
+    }
+    
+    drawPane_->Refresh();
+    //  SetStatusText("数据准备完毕！请建立R树");
+}
+
+// 寻找真实匹配路径
+void Frame::OnFindGroudTruth(wxCommandEvent& event) {
+    drawPane_->CalculateGroundTruth();
+    drawPane_->Refresh();
+}
+
+// 建立R树
 void Frame::OnBuildRtree(wxCommandEvent& event) {
     wxWindowDisabler disableAll;
     wxBusyInfo info(wxT("Building R Tree, this may take several seconds..."), this);
@@ -295,6 +327,7 @@ void Frame::OnBuildRtree(wxCommandEvent& event) {
     }
 }
 
+// 建立图
 void Frame::OnBuildGraph(wxCommandEvent& event) {
     bool status = drawPane_->BuildGraph (map_path_.ToStdString());
     if (!status) {
@@ -306,6 +339,7 @@ void Frame::OnBuildGraph(wxCommandEvent& event) {
     }
 }
 
+// 寻找候选点集
 void Frame::OnFindLocation(wxCommandEvent& event) {
 	//wxNumberEntryDialog dialog(this, wxT("输入GPS误差（单位为米）"), wxT("GPS误差: "),
 	//	wxT("寻找候选点的阈值设定"), 250, 0, 500);
@@ -335,6 +369,7 @@ void Frame::OnOutputDir (wxCommandEvent& event)
     }
 }
 
+// 寻找候选边集
 void Frame::OnShortestPath(wxCommandEvent& event) {
     if (!drawPane_->ShortestPath(map_path_.ToStdString())) {
         wxMessageBox(wxT("fail!"), wxT("Warning"));
@@ -351,6 +386,7 @@ void Frame::OnLoadGraph(wxCommandEvent& event) {
     drawPane_->LoadGraph(map_path_.ToStdString());
 }
 
+// 强化学习
 void Frame::OnRL(wxCommandEvent& event) {
     wxWindowDisabler disableAll;
     wxBusyInfo info(wxT("Learning..."), this);
@@ -382,25 +418,4 @@ void Frame::OnClear(wxCommandEvent& event) {
     drawPane_->Refresh();
 }
 
-void Frame::OnOpenDensityRoute(wxCommandEvent& event) {
-    wxString defaultPath = wxT ("/");
-    wxString caption = wxT("Open GPS route");
-    wxString wildcard = wxT("SHP files(*.shp)|*.shp");
-    
-    wxFileDialog dialog (this, caption, wxEmptyString, wxEmptyString, wildcard);
-    
-    if (dialog .ShowModal() == wxID_OK) {
-        bool status = drawPane_->LoadDensityRoute(dialog.GetPath().ToStdString());
-        if (!status)
-            wxMessageBox(wxT("Open fail!"), wxT("error"));
-    }
-    
-    drawPane_->Refresh();
-  //  SetStatusText("数据准备完毕！请建立R树");
-}
-
-void Frame::OnFindGroudTruth(wxCommandEvent& event) {
-    drawPane_->CalculateGroundTruth();
-    drawPane_->Refresh();
-}
 

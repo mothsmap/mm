@@ -37,7 +37,16 @@ EVT_PAINT (wxImagePanel::paintEvent)
 EVT_SIZE (wxImagePanel::OnSize)
 END_EVENT_TABLE()
 
-bool wxImagePanel::LoadMapDefine (wxString map_folder) {
+
+// 建立图结构的范围
+#define gps_extent_minx 13430228.21
+#define gps_extent_maxx 13594692.45
+
+#define gps_extent_miny 3546269.72
+#define gps_extent_maxy 3768169.90
+
+// 加载地图
+bool wxImagePanel::LoadMapDefine(wxString map_folder) {
     //SetBackgroundStyle(wxBG_STYLE_CUSTOM);
     wxColour color ("#CCE8CF");
     SetBackgroundColour (color);
@@ -84,6 +93,7 @@ bool wxImagePanel::BuildRTree(std::string filename) {
 }
 
 bool wxImagePanel::BuildGraph(std::string filename) {
+#if 0
     const std::vector<wxPoint2DDouble>& points = route_->getRoute();
     
     double gps_extent_minx = points[0].m_x;
@@ -97,7 +107,9 @@ bool wxImagePanel::BuildGraph(std::string filename) {
             gps_extent_maxx = gps_extent_maxx > points[i].m_x ? gps_extent_maxx : points[i].m_x;
             gps_extent_maxy = gps_extent_maxy > points[i].m_y ? gps_extent_maxy : points[i].m_y;
     }
-    const double thd = 500;
+#endif
+    
+    const double thd = 10;
     bool status = shapefile_graph_->Build(tree_, gps_extent_minx - thd, gps_extent_miny - thd, gps_extent_maxx + thd, gps_extent_maxy + thd);
     
     return status;
@@ -304,18 +316,14 @@ void wxImagePanel::render (wxDC&  dc) {
     }
     
     if (!density_route_->isEmpty()) {
-        //std::ofstream out("route.txt");
         const std::vector<wxPoint2DDouble>& points = density_route_->getRoute();
         for (int i = 0; i < points.size(); ++i) {
             // calculate pos
             wxPoint pos = CalculatePos(points[i].m_x, points[i].m_y);
             
-            dc.SetPen(*wxRED_PEN);
-            dc.SetBrush(*wxGREEN_BRUSH);
-            dc.DrawCircle(pos, 5);
-            
-            // label
-            //dc.DrawText(wxString("P" + boost::lexical_cast<std::string>(i)), pos.x + 5, pos.y);
+            dc.SetPen(*wxGREEN_PEN);
+            dc.SetBrush(*wxRED_BRUSH);
+            dc.DrawCircle(pos, 3);
         }
     }
     
@@ -550,27 +558,62 @@ bool wxImagePanel::LoadDensityRoute(std::string filename) {
     return true;
 }
 
-void wxImagePanel::CalculateGroundTruth() {
-    ground_truth_.clear();
+void wxImagePanel::GetProjectPoint(double x1, double y1, double x2, double y2, double x, double y, double& xx, double& yy) {
+    // 两个端点在x-y方向的最大最小值
+    double xmin = x1 < x2 ? x1 : x2;
+    double xmax = x1 > x2 ? x1 : x2;
+    double ymin = y1 < y2 ? y1 : y2;
+    double ymax = y1 > y2 ? y1 : y2;
     
-    std::vector<int> nearest_roads;
-    const std::vector<wxPoint2DDouble>& points = density_route_->getRoute();
-    for (int i = 0; i < points.size(); ++i) {
-        // Find nearest road to this point
-        std::vector<Value> result = tree_->Query(EDGE, BoostPoint(points[i].m_x, points[i].m_y), 5);
-        if (result.size() == 0) {
-            nearest_roads.push_back(nearest_roads[i - 1]);
+    // x最小值对应的y
+    double xmin2y = x1 < x2 ? y1 : y2;
+    // x最大值对应的y
+    double xmax2y = x1 > x2 ? y1 : y2;
+    
+    // 阈值
+    const double error_value = 0.0000001;
+    
+    // 直线参数 y = k * x + b
+    double k, b;
+    
+    // 如果线段平行于X轴
+    if (abs(y2 - y1) < error_value) {
+        if (x <= xmin)
+            xx = xmin;
+        else if (x >= xmax)
+            xx = xmax;
+        else
+            xx = x;
+        yy = y1;
+        
+    } else if (abs(x2 - x1) < error_value) {
+        // 如果线段平行于y轴
+            if (y <= ymin)
+                yy = ymin;
+            else if (y >= ymax)
+                yy = ymax;
+            else
+                yy = y;
+            
+            xx = x1;
+        } else {
+            // 如果线段不平行于x、y轴
+            k = (y2 - y1) / (x2 - x1);
+            b = y2 - k * x2;
+            
+            xx = (k * y + x - k * b) / (k * k + 1);
+            yy = k * xx + b;
+            
+            if (xx <= xmin) {
+                xx = xmin;
+                yy = xmin2y;
+            } else if (xx >= xmax) {
+                xx = xmax;
+                yy = xmax2y;
+            } else {
+                
+            }
         }
-        
-        std::vector<int> filter;
-        // connection filter
-        
-        
-        // direction filter
-        int geometry_id = result[0].second;
-        nearest_roads.push_back(geometry_id);
-    }
-
 }
 
 bool wxImagePanel::LocatePoints(int elements) {
@@ -596,74 +639,15 @@ bool wxImagePanel::LocatePoints(int elements) {
 			BoostLineString line = tree_->GetEdge(geometry_id);
             RoadInfo info = tree_->GetRoadInfo(geometry_id);
             
-			//nearest_lines_.push_back(line);
+            // 线段两个端点
             double x1 = line.at(0).get<0>();
             double y1 = line.at(0).get<1>();
             double x2 = line.at(1).get<0>();
             double y2 = line.at(1).get<1>();
-            
-            double xmin = x1 < x2 ? x1 : x2;
-            double xmax = x1 > x2 ? x1 : x2;
-            double ymin = y1 < y2 ? y1 : y2;
-            double ymax = y1 > y2 ? y1 : y2;
-            
-            double xmin2y = x1 < x2 ? y1 : y2;
-            double xmax2y = x1 > x2 ? y1 : y2;
-            
-            double x = points[i].m_x;
-            double y = points[i].m_y;
-            const double error_value = 0.0000001;
-            
-            double k, b;
             double xx, yy;
-            // 如果line是平行于X轴
-            if (abs(y2 - y1) < error_value) {
-                if (x <= xmin)
-                    xx = xmin;
-                else if (x >= xmax)
-                    xx = xmax;
-                else
-                    xx = x;
-                yy = y1;
-                
-            }
+            GetProjectPoint(x1, y1, x2, y2, points[i].m_x, points[i].m_y, xx, yy);
             
-            // 如果line是平行于y轴
-            if (abs(x2 - x1) < error_value) {
-                if (y <= ymin)
-                    yy = ymin;
-                else if (yy >= ymax)
-                    yy = ymax;
-                else
-                    yy = y;
-                
-                xx = x1;
-            }
-            
-            // 如果line不平行于x、y轴
-            k = (y2 - y1) / (x2 - x1);
-            b = y2 - k * x2;
-            
-            xx = (k * y + x - k * b) / (k * k + 1);
-            yy = k * xx + b;
-           
-            if (xx <= xmin) {
-                xx = xmin;
-                yy = xmin2y;
-            } else if (xx >= xmax) {
-                xx = xmax;
-                yy = xmax2y;
-            } else {
-                
-            }
-            double dis1 = (xx - x1) * (xx - x1) + (yy - y1) * (yy - y1);
-            double dis2 = (xx - x2) * (xx - x2) + (yy - y2) * (yy - y2);
-            
-            if (dis1 > dis2) {
-                candinate_points.push_back(wxPoint2DDouble(x2, y2));
-            } else {
-                candinate_points.push_back(wxPoint2DDouble(x1, y1));
-            }
+            candinate_points.push_back(wxPoint2DDouble(xx, yy));
             
             colors.push_back(rand() % 255);
             colors.push_back(rand() % 255);
@@ -679,6 +663,64 @@ bool wxImagePanel::LocatePoints(int elements) {
 	}
     
 	return true;
+}
+
+void wxImagePanel::CalculateGroundTruth() {
+    // score function
+    // s = sd + sa
+    // sd(pi, ci) = ud - a * d(pi, ci)^nd
+    // sa(pi, ci) = ua * cos(ai,j)^na
+    double ud = 10;
+    double a = 0.17;
+    double nd = 1.4;
+    
+    double ua = 10;
+    double na = 4;
+    
+    ground_truth_.clear();
+    const std::vector<wxPoint2DDouble>& points = density_route_->getRoute();
+    
+    for (int i = 0; i < points.size(); ++i) {
+        // Find nearest road to this point
+        std::vector<Value> result = tree_->Query(EDGE, BoostPoint(points[i].m_x, points[i].m_y), 5);
+        int best_geometry = result[0].second;
+        double best_score = 0;
+        
+        for (int j = 0; j < result.size(); ++j) {
+            int geometry_id = result[j].second;
+            BoostLineString line = tree_->GetEdge(geometry_id);
+            
+            double x1 = line.at(0).get<0>();
+            double y1 = line.at(0).get<1>();
+            double x2 = line.at(1).get<0>();
+            double y2 = line.at(1).get<1>();
+            double xx, yy;
+            GetProjectPoint(x1, y1, x2, y2, points[i].m_x, points[i].m_y, xx, yy);
+            
+            double sd = 0;
+            
+            double dist = sqrt((points[i].m_x - xx) * (points[i].m_x - xx) + (points[j].m_y - yy) * (points[j].m_y - yy));
+            sd = ud - a * pow(dist, nd);
+            
+            double sa = 0;
+            if (i != 0) {
+                double u = x2 - x1;
+                double v = y2 - y1;
+                double m = points[i].m_x - points[i - 1].m_x;
+                double n = points[i].m_y - points[i - 1].m_y;
+                double cos_theta = (u * m + v * n) / (sqrt(u * u + v * v) * sqrt(m * m + n * n));
+                sa = ua * pow(cos_theta, na);
+            }
+            
+            double s = sd + sa;
+            if (best_score < s) {
+                best_score = s;
+                best_geometry = geometry_id;
+            }
+        }
+        
+        ground_truth_.push_back(best_geometry);
+    }
 }
 
 bool wxImagePanel::ShortestPath(std::string filename) {

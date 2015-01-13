@@ -47,6 +47,7 @@ public:
     wxPoint CalculatePos(double x, double y);
     void GetTileRange();
     
+    void GetProjectPoint(double x1, double y1, double x2, double y2, double x, double y, double& xx, double& yy);
     
     void Reset();
     
