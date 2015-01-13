@@ -84,7 +84,7 @@ private:
     // Sparse route
 	boost::shared_ptr<Route> route_;
     // Density route
-    boost::shared_ptr<Route> density_route_;
+    //boost::shared_ptr<Route> density_route_;
     std::vector<int> ground_truth_;
     
     boost::shared_ptr<ShapefileGraph> shapefile_graph_;
@@ -122,5 +122,12 @@ private:
     bool ready_for_cache_;
     //int current_style_version_;
     bool apply_;
+    
+    // 建立图结构的范围
+    double gps_extent_minx_;
+    double gps_extent_maxx_;
+    
+    double gps_extent_miny_;
+    double gps_extent_maxy_;
 };
 #endif // MAP_CLIENT_H_

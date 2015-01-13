@@ -38,13 +38,6 @@ EVT_SIZE (wxImagePanel::OnSize)
 END_EVENT_TABLE()
 
 
-// 建立图结构的范围
-#define gps_extent_minx 13430228.21
-#define gps_extent_maxx 13594692.45
-
-#define gps_extent_miny 3546269.72
-#define gps_extent_maxy 3768169.90
-
 // 加载地图
 bool wxImagePanel::LoadMapDefine(wxString map_folder) {
     //SetBackgroundStyle(wxBG_STYLE_CUSTOM);
@@ -93,24 +86,24 @@ bool wxImagePanel::BuildRTree(std::string filename) {
 }
 
 bool wxImagePanel::BuildGraph(std::string filename) {
-#if 0
+
     const std::vector<wxPoint2DDouble>& points = route_->getRoute();
     
-    double gps_extent_minx = points[0].m_x;
-    double gps_extent_miny = points[0].m_y;
-    double gps_extent_maxx = points[0].m_x;
-    double gps_extent_maxy = points[0].m_y;;
+    gps_extent_minx_ = points[0].m_x;
+    gps_extent_miny_ = points[0].m_y;
+    gps_extent_maxx_ = points[0].m_x;
+    gps_extent_maxy_ = points[0].m_y;;
 
-    for (int i = 1; i < points.size(); ++i) {
-            gps_extent_minx = gps_extent_minx < points[i].m_x ? gps_extent_minx : points[i].m_x;
-            gps_extent_miny = gps_extent_miny < points[i].m_y ? gps_extent_miny : points[i].m_y;
-            gps_extent_maxx = gps_extent_maxx > points[i].m_x ? gps_extent_maxx : points[i].m_x;
-            gps_extent_maxy = gps_extent_maxy > points[i].m_y ? gps_extent_maxy : points[i].m_y;
+    for (int i = 0; i < points.size(); ++i) {
+            gps_extent_minx_ = gps_extent_minx_ < points[i].m_x ? gps_extent_minx_ : points[i].m_x;
+            gps_extent_miny_ = gps_extent_miny_ < points[i].m_y ? gps_extent_miny_ : points[i].m_y;
+            gps_extent_maxx_ = gps_extent_maxx_ > points[i].m_x ? gps_extent_maxx_ : points[i].m_x;
+            gps_extent_maxy_ = gps_extent_maxy_ > points[i].m_y ? gps_extent_maxy_ : points[i].m_y;
     }
-#endif
+
     
-    const double thd = 10;
-    bool status = shapefile_graph_->Build(tree_, gps_extent_minx - thd, gps_extent_miny - thd, gps_extent_maxx + thd, gps_extent_maxy + thd);
+    const double thd = 500;
+    bool status = shapefile_graph_->Build(tree_, gps_extent_minx_ - thd, gps_extent_miny_ - thd, gps_extent_maxx_ + thd, gps_extent_maxy_ + thd);
     
     return status;
 }
@@ -215,7 +208,6 @@ wxImagePanel::wxImagePanel(wxFrame* parent) : wxPanel (parent) {
 
 	tree_ = boost::shared_ptr<RTree>(new RTree);
 	route_ = boost::shared_ptr<Route>(new Route);
-    density_route_ = boost::shared_ptr<Route>(new Route);
     shapefile_graph_ = boost::shared_ptr<ShapefileGraph>(new ShapefileGraph);
     mm_ = boost::shared_ptr<MM>(new MM);
 }
@@ -300,23 +292,7 @@ void wxImagePanel::render (wxDC&  dc) {
     
     // taxi route
     if (!route_->isEmpty()) {
-        //std::ofstream out("route.txt");
         const std::vector<wxPoint2DDouble>& points = route_->getRoute();
-        for (int i = 0; i < points.size(); ++i) {
-            // calculate pos
-            wxPoint pos = CalculatePos(points[i].m_x, points[i].m_y);
-            
-            dc.SetPen(*wxRED_PEN);
-            dc.SetBrush(*wxGREEN_BRUSH);
-            dc.DrawCircle(pos, 5);
-            
-            // label
-            //dc.DrawText(wxString("P" + boost::lexical_cast<std::string>(i)), pos.x + 5, pos.y);
-        }
-    }
-    
-    if (!density_route_->isEmpty()) {
-        const std::vector<wxPoint2DDouble>& points = density_route_->getRoute();
         for (int i = 0; i < points.size(); ++i) {
             // calculate pos
             wxPoint pos = CalculatePos(points[i].m_x, points[i].m_y);
@@ -327,7 +303,11 @@ void wxImagePanel::render (wxDC&  dc) {
         }
     }
     
+    
     if (ground_truth_.size() > 0) {
+        wxPen pen(*wxBLUE_PEN);
+        pen.SetWidth(3);
+        
         for (int i = 0; i < ground_truth_.size(); ++i) {
             int geometry_id = ground_truth_[i];
             BoostLineString road = tree_->GetEdge(geometry_id);
@@ -340,7 +320,7 @@ void wxImagePanel::render (wxDC&  dc) {
             wxPoint pos1 = CalculatePos(x1, y1);
             wxPoint pos2 = CalculatePos(x2, y2);
             
-            dc.SetPen(*wxYELLOW_PEN);
+            dc.SetPen(pen);
             dc.DrawLine(pos1, pos2);
         }
     }
@@ -544,6 +524,7 @@ void wxImagePanel::update_display_screen_center (int direction, double offset) {
 }
 
 bool wxImagePanel::LoadRoute(std::string filename) {
+    route_->Reset();
     if (!route_->Load(filename)) {
         return false;
     }
@@ -552,9 +533,13 @@ bool wxImagePanel::LoadRoute(std::string filename) {
 }
 
 bool wxImagePanel::LoadDensityRoute(std::string filename) {
-    if (!density_route_->Load(filename)) {
+    route_->Reset();
+    if (!route_->Load(filename)) {
         return false;
     }
+    
+    // resample
+    route_->Resample(15);
     return true;
 }
 
@@ -678,11 +663,18 @@ void wxImagePanel::CalculateGroundTruth() {
     double na = 4;
     
     ground_truth_.clear();
-    const std::vector<wxPoint2DDouble>& points = density_route_->getRoute();
+    const std::vector<wxPoint2DDouble>& points = route_->getRoute();
     
     for (int i = 0; i < points.size(); ++i) {
         // Find nearest road to this point
-        std::vector<Value> result = tree_->Query(EDGE, BoostPoint(points[i].m_x, points[i].m_y), 5);
+        //std::vector<Value> result = tree_->Query(EDGE, BoostPoint(points[i].m_x, points[i].m_y), 5);
+        int step_size = 50;
+        std::vector<Value> result = tree_->Query(EDGE, points[i].m_x - step_size, points[i].m_y - step_size, points[i].m_x + step_size, points[i].m_y + step_size);
+        while (result.size() <= 0) {
+            step_size += 5;
+            result = tree_->Query(EDGE, points[i].m_x - step_size, points[i].m_y - step_size, points[i].m_x + step_size, points[i].m_y + step_size);
+        }
+        
         int best_geometry = result[0].second;
         double best_score = 0;
         
@@ -698,8 +690,7 @@ void wxImagePanel::CalculateGroundTruth() {
             GetProjectPoint(x1, y1, x2, y2, points[i].m_x, points[i].m_y, xx, yy);
             
             double sd = 0;
-            
-            double dist = sqrt((points[i].m_x - xx) * (points[i].m_x - xx) + (points[j].m_y - yy) * (points[j].m_y - yy));
+            double dist = sqrt((points[i].m_x - xx) * (points[i].m_x - xx) + (points[i].m_y - yy) * (points[i].m_y - yy));
             sd = ud - a * pow(dist, nd);
             
             double sa = 0;
@@ -709,9 +700,12 @@ void wxImagePanel::CalculateGroundTruth() {
                 double m = points[i].m_x - points[i - 1].m_x;
                 double n = points[i].m_y - points[i - 1].m_y;
                 double cos_theta = (u * m + v * n) / (sqrt(u * u + v * v) * sqrt(m * m + n * n));
+                if (cos_theta < 0)
+                    cos_theta = -cos_theta;
+                
                 sa = ua * pow(cos_theta, na);
             }
-            
+    
             double s = sd + sa;
             if (best_score < s) {
                 best_score = s;

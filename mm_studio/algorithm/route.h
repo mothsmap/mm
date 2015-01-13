@@ -13,7 +13,8 @@ public:
     
     // Load data from shapefile
     bool Load(std::string);
-
+    void Resample(double res);
+    
     inline bool isEmpty() { return route_.size() <= 0; }
     inline const std::vector<wxPoint2DDouble>& getRoute() { return route_; }
     void getRouteVertex(int index, double& x, double& y);
