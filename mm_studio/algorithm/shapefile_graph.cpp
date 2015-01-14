@@ -243,7 +243,7 @@ bool ShapefileGraph::ComputeShortestPath(std::string map_dir) {
                 ////////////////
             }
 #if PRINT_INFO
-            std::cout << "Add a shortest path\n";
+          //  std::cout << "Add a shortest path\n";
 #endif
             if (path_valid) {
                 shortest_paths_.push_back(shortest_path);
@@ -304,7 +304,7 @@ void ShapefileGraph::NormalizeShortestPathLengths() {
 
 bool ShapefileGraph::AddCandidatePoint(double sx, double sy, double ex, double ey, double cx, double cy, int gps_id, int candidate_id, int oneway, int road_id) {
 #if PRINT_INFO
-    std::cout << "插入候选点到图种...\n";
+ //   std::cout << "插入候选点到图种...\n";
 #endif
     // 寻找候选点所在边的两个节点
     std::pair<Graph::vertex_iterator, Graph::vertex_iterator> vertex_iterator_range = boost::vertices(graph_);
@@ -373,7 +373,7 @@ bool ShapefileGraph::AddCandidatePoint(double sx, double sy, double ex, double e
         
         // 返回
 #if PRINT_INFO
-        std::cout << "success!\n";
+ //       std::cout << "success!\n";
 #endif
         return true;
     }

@@ -69,7 +69,7 @@ public:
         return action_list_[index].path_; }
     
     inline std::vector<Action>& get_parsing_action() { return action_list_; }
-    inline std::vector<State>& get_parsing_result() { return parsing_result_; }
+    //inline std::vector<State>& get_parsing_result() { return parsing_result_; }
     bool parsing_result_valid();
     
     void Clear();
@@ -109,7 +109,7 @@ private:
     std::map<int, State> index_to_state_;           /* index-state map. */
     std::map<int, std::vector<int> > suitable_actions_for_state_;
 
-    std::vector<State> parsing_result_;
+  //  std::vector<State> parsing_result_;
     std::vector<Action> action_list_;
 };
 

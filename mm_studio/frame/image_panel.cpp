@@ -115,7 +115,7 @@ void wxImagePanel::SetResolution (int level) {
     if (level >= lod_->GetResolutionLevel())
         level = lod_->GetResolutionLevel() - 1;
     
-    std::cout << "current level: " << level << std::endl;
+ //   std::cout << "current level: " << level << std::endl;
     current_lod_ = level;
 }
 
@@ -344,13 +344,13 @@ void wxImagePanel::render (wxDC&  dc) {
     if (mm_->parsing_result_valid()) {
         wxPen pen(*wxCYAN);
         pen.SetWidth(3);
-        wxPen red_pen(*wxRED);
-        red_pen.SetWidth(2);
+        dc.SetPen(pen);
         
 #if PRINT_INFO
         std::ofstream ofs(map_dir_ + "/result.txt");
 #endif
         std::vector<Action>& parsing_actions = mm_->get_parsing_action();
+        
 #if PRINT_INFO
         std::cout << "Actions: ";
 #endif
@@ -376,50 +376,12 @@ void wxImagePanel::render (wxDC&  dc) {
                 points_in_path_of_screen.push_back(pos);
             }
             
-            double al = 10;
-            double aw = 5;
             
             for (int j = 0; j < points_in_path_of_screen.size() - 1; j += 2) {
-//                if (j == 0) {
-//                    dc.SetPen(*wxYELLOW_PEN);
-//                    dc.SetBrush(*wxRED_BRUSH);
-//                    dc.DrawCircle(points_in_path_of_screen[0], 8);
-//                }
-                
                 dc.DrawLine(points_in_path_of_screen[j], points_in_path_of_screen[j + 1]);
-#if 0
-                double x1 = points_in_path_of_screen[j].x;
-                double y1 = points_in_path_of_screen[j].y;
-                double x2 = points_in_path_of_screen[j + 1].x;
-                double y2 = points_in_path_of_screen[j + 1].y;
-                
-                double dist_x = x2 - x1;
-                double dist_y = y2 - y1;
-                
-                double dist = dist_x * dist_x + dist_y * dist_y;
-                double length = sqrt(dist);
-                
-                if (length <= 0.001)
-                    continue;
-                
-                double x = dist_x / length;
-                double y = dist_y / length;
-                
-                wxPoint base(x2 - x * al, y2 - y * al);
-                wxPoint back_top(base.x - aw * y, base.y + aw * x);
-                wxPoint back_bottom(base.x + aw * y, base.y - aw * x);
-                
-                dc.SetPen(pen);
-                dc.DrawLine(points_in_path_of_screen[j], points_in_path_of_screen[j + 1]);
-                
-                dc.SetPen(red_pen);
-                dc.DrawLine(base, points_in_path_of_screen[j + 1]);
-                dc.DrawLine(points_in_path_of_screen[j + 1], back_bottom);
-                dc.DrawLine(points_in_path_of_screen[j + 1], back_top);
-#endif
-                
             }
         }
+        
 #if PRINT_INFO
         ofs.close();
 #endif
@@ -505,10 +467,10 @@ void wxImagePanel::MuiltyThreadCache (wxDC& dc) {
         int image_pos_x = tile_offset.m_x / lod_->GetResolutionByLevel(current_lod_);
         int image_pos_y = tile_offset.m_y / lod_->GetResolutionByLevel(current_lod_);
         
-        std::cout << "image x: " << image_pos_x << ", image y: " << image_pos_y << std::endl;
+ //       std::cout << "image x: " << image_pos_x << ", image y: " << image_pos_y << std::endl;
         std::string tile_path = out_dir_ + "/" + boost::lexical_cast<std::string>(current_lod_)
         + "_" + boost::lexical_cast<std::string>(row) + "_" + boost::lexical_cast<std::string>(col) + ".png";
-        std::cout << "tile path: " << tile_path << std::endl;
+ //       std::cout << "tile path: " << tile_path << std::endl;
         bool file_exits = boost::filesystem::exists (tile_path);
         if (file_exits) {
             wxImage tile_png;
@@ -768,15 +730,17 @@ bool wxImagePanel::RL() {
         return false;
     
     double score = 0;
-    int count = 0;
-    while (!mm_->parsing_result_valid() && count < 10) {
-        score = mm_->RunParsingAlgorithm(30000, 10000, 0.1);
-        ++count;
-    }
+    score = mm_->RunParsingAlgorithm(500000, 100000, 0.1);
+//    int count = 0;
+//    while (!mm_->parsing_result_valid() && count < 10) {
+//        score = mm_->RunParsingAlgorithm(30000, 10000, 0.1);
+//        ++count;
+ //   }
     
     ((Frame*)this->GetParent())->UpdateErrorText("强化学习得分：" + boost::lexical_cast<std::string>(score));
     
-    return count < 10;
+   // return count < 10;
+    return true;
 }
 
 void wxImagePanel::Reset() {

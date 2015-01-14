@@ -130,5 +130,5 @@
 
 void RTree::TravelEdge(int id) {
     info_[id].travel_counts_++;
-    std::cout << "Edge " << id << " travel count = " << info_[id].travel_counts_ << std::endl;
+  //  std::cout << "Edge " << id << " travel count = " << info_[id].travel_counts_ << std::endl;
 }

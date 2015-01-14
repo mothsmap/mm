@@ -26,7 +26,7 @@ void MM::Clear() {
     state_to_index_.clear();
     index_to_state_.clear();
     suitable_actions_for_state_.clear();
-    parsing_result_.clear();
+   // parsing_result_.clear();
     action_list_.clear();
 }
 
@@ -36,51 +36,7 @@ bool MM::InitModel(boost::shared_ptr<RTree> tree, boost::shared_ptr<Route> route
     
     tree_ = tree;
     route_ = route;
-#if 0
-    // 计算候选点到gps点的最大距离
-    max_candidate_distance_ = 0;
-    min_candidate_distance_ = 1e6;
     
-    for (int i = 0; i < candidate_points.size(); ++i) {
-        std::vector<wxPoint2DDouble>& candidates = candidate_points[i];
-        double x1, y1;
-        route_->getRouteVertex(i, x1, y1);
-        
-        for (int j = 0; j < candidates.size(); ++j) {
-            double distance = Distance2(x1, y1, candidates[j].m_x, candidates[j].m_y);
-            
-            if (max_candidate_distance_ < distance)
-                max_candidate_distance_ = distance;
-            if (min_candidate_distance_ > distance)
-                min_candidate_distance_ = distance;
-        }
-    }
-    
-#if PRINT_INFO
-    std::cout << "min candidate distance: " << min_candidate_distance_ << std::endl;
-    std::cout << "max candidate distance: " << max_candidate_distance_ << std::endl;
-#endif
-    
-    // 计算两两gps点之间的最长路径
-    max_route_length_ = 0;
-    min_route_length_ = 1e6;
-    
-    for (int i = 0; i < shortest_paths.size(); ++i) {
-        if (shortest_paths[i].path_.size() == 0)
-            continue;
-        
-        if (max_route_length_ < shortest_paths[i].length_)
-            max_route_length_ = shortest_paths[i].length_;
-        
-        if (min_route_length_ > shortest_paths[i].length_)
-            min_route_length_ = shortest_paths[i].length_;
-    }
-    
-#if PRINT_INFO
-    std::cout << "max route length: " << max_route_length_ << std::endl;
-    std::cout << "min route length: " << min_route_length_ << std::endl;
-#endif
-#endif
     // 添加虚拟的初始点
     initial_state_size_ = candidate_points[0].size();
     for (int i = 0; i < initial_state_size_; ++i) {
@@ -226,7 +182,7 @@ bool MM::InitSymbolSuitableActions() {
 
 
 double MM::RunParsingAlgorithm(int episodes, int greedy_episodes, double learning_rate) {
-    parsing_result_.clear();
+    //parsing_result_.clear();
     action_list_.clear();
     
 #if PRINT_INFO
@@ -257,29 +213,11 @@ double MM::RunParsingAlgorithm(int episodes, int greedy_episodes, double learnin
         double score = RunTask(current_state_);
         
 #if PRINT_INFO
-        // 没一千次学习输出当前学习成果（得分）
+        // 每一千次学习输出当前学习成果（得分）及相应参数
         if((i + 1) % 1000 == 0) {
             std::cout << "\n场景 " << i << ". 得分 = " << score <<
-                      " epsilon: " << epsilon_ << " learning_rate_: " << learning_rate_ /*<< " Seed: " << rand_seed*/ <<
+                      " epsilon: " << epsilon_ << " learning_rate_: " << learning_rate_  << "gamma: " << gamma_ <<
                       std::endl;
-        }
-        
-        // 每一万次学习计算一次贪婪算法得分
-        if((i + 1) % 10000 == 0) {
-            //double back_learning_rate = learning_rate_;
-            double back_epsilon = epsilon_;
-
-            //learning_rate_ = 0.01;
-            epsilon_ = 1.0;
-            learning_ = false;
-
-            Reset();
-            double score = RunTask(current_state_);
-            std::cout << "\n\n贪婪得分: " << score << std::endl;
-
-            //learning_rate_ = back_learning_rate;
-            epsilon_ = back_epsilon;
-            learning_ = true;
         }
 #endif
         
@@ -299,8 +237,8 @@ double MM::RunParsingAlgorithm(int episodes, int greedy_episodes, double learnin
         
 #if PRINT_INFO
         if(i % 10000 == 0) {
-            std::cout << "\场景 " << i << " 得分: " << score <<
-                      " epsilon: " << epsilon_ << " gamma: " << gamma_ /*<< " Seed: " << rand_seed*/ << std::endl;
+            std::cout << "\n场景 " << i << " 得分: " << score <<
+                      " epsilon: " << epsilon_ << " gamma: " << gamma_ << std::endl;
         }
 #endif
     }
@@ -312,15 +250,13 @@ double MM::RunParsingAlgorithm(int episodes, int greedy_episodes, double learnin
     record_ = true;
     double score = RunTask(current_state_);
 #if PRINT_INFO
-    std::cout << "\贪婪得分: " << score << std::endl;
+    std::cout << "\n贪婪得分: " << score << std::endl;
 #endif
     return (score);
 }
 
 
 double MM::RunTask(State& state) {
-    action_list_.clear();
-    
     // 场景得分
     double episode_score = 0.0;
     int action_index, next_state_index;
@@ -353,7 +289,7 @@ double MM::RunTask(State& state) {
         
         // 记录该状态
         if (record_) {
-            parsing_result_.push_back(next_state);
+           // parsing_result_.push_back(next_state);
             action_list_.push_back(action);
         }
         
@@ -367,25 +303,27 @@ double MM::RunTask(State& state) {
             int travel_count = tree_->GetRoadInfo(action.path_[i]).travel_counts_;
             segment_score += travel_count;
         }
+        double dist_power = 2.0;
+        double dist_k = -1.0;
+        double dist_const = 1000;
+        dist_score = dist_const + dist_k * pow(dist_score, dist_power);
         
-        double k_dist = 50;
-        double k_route = 1.0;
-        double k_seg = -25;
+        double route_power = 1.0;
+        double route_k = -1.0;
+        double route_const = 500;
+        route_score = route_const + route_k * pow(route_score, route_power);
         
-        episode_score = episode_score + k_dist * dist_score + k_route * route_score + k_seg * segment_score;
+        double seg_power = 4;
+        double seg_k = 10;
+        double seg_const = 0;
+        segment_score = seg_const + seg_k * pow(segment_score, seg_power);
         
-        // 改状态是否是终止状态？
+        score = dist_score + route_score + segment_score;
+        
+        // 该状态是否是终止状态？
         if (next_state.gps_id_ == terminal_state_) {
             end_of_task = true;
-            
-            
-            score = episode_score;
-#if PRINT_INFO
-            if (score < 0)
-                std::cout << "Warning: score is smaller than zero!\n~\n~\n~\n";
-#endif
-        } else {
-            score = 0.0;
+            episode_score += score;
         }
 
         // 更新Q值表
@@ -406,8 +344,8 @@ void MM::Reset() {
     // 重新设置当前的状态
     current_state_.gps_id_ = -1;
     current_state_.candidate_id_ = -1;
-    
-    parsing_result_.clear();
+
+    action_list_.clear();
 }
 
 bool MM::parsing_result_valid() {
