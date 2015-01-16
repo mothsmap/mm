@@ -165,6 +165,8 @@ Frame::Frame (const wxString& title) : wxFrame (NULL, wxID_ANY, title) {
 
     SetMenuBar (main_menu_);
 
+   map_path_ = "/Volumes/My Passport/back/mm/map";
+    
     CreateStatusBar (2);
     SetStatusText (wxT ("~~~Welcome~~~Please open a map"));
 }

@@ -162,14 +162,16 @@ ${CMAKE_SOURCE_DIR}/mm_studio/algorithm/
 ${CMAKE_SOURCE_DIR}/mm_studio/frame/
 )
 
-add_executable(mm
-mm_studio/frame/app.cpp
-mm_studio/frame/frame.h
-mm_studio/frame/frame.cpp
-mm_studio/frame/gui_job.h
-mm_studio/frame/image_panel.h
-mm_studio/frame/image_panel.cpp
+set(frame_src
+  mm_studio/frame/app.cpp
+  mm_studio/frame/frame.h
+  mm_studio/frame/frame.cpp
+  mm_studio/frame/gui_job.h
+  mm_studio/frame/image_panel.h
+  mm_studio/frame/image_panel.cpp
+)
 
+set(algorithm_src
 mm_studio/algorithm/boost_geometry.h
 mm_studio/algorithm/route.h
 mm_studio/algorithm/route.cpp
@@ -177,6 +179,8 @@ mm_studio/algorithm/rtree.h
 mm_studio/algorithm/rtree.cpp
 mm_studio/algorithm/shapefile_graph.h
 mm_studio/algorithm/shapefile_graph.cpp
+mm_studio/algorithm/mm_density.h
+mm_studio/algorithm/mm_density.cpp
 mm_studio/algorithm/mm_model.h
 mm_studio/algorithm/mm_model.cpp
 
@@ -186,6 +190,19 @@ mm_studio/algorithm/rl_algorithm.h
 mm_studio/algorithm/rl_algorithm.cpp
 mm_studio/algorithm/scale_model.h
 mm_studio/algorithm/scale_model.cpp
+  )
+
+add_executable(mm
+  ${frame_src}
+  ${algorithm_src}
+)
+
+add_executable(mm_test
+mm_test/test.cpp
 )
 
 target_link_libraries(mm ${COMMOM_LIBS})
+target_link_libraries(mm_test ${COMMOM_LIBS})
+
+source_group(frame FILES ${frame_src})
+source_group(algorithm FILES ${algorithm_src})

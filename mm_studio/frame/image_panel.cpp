@@ -12,6 +12,7 @@
 #include <algorithm>
 #include "rtree.h"
 #include "route.h"
+#include "mm_density.h"
 #include "mm_model.h"
 #include "shapefile_graph.h"
 #include "mapping.h"
@@ -87,7 +88,10 @@ bool wxImagePanel::BuildRTree(std::string filename) {
 
 bool wxImagePanel::BuildGraph(std::string filename) {
 
-    const std::vector<wxPoint2DDouble>& points = route_->getRoute();
+    std::vector<wxPoint2DDouble> points = route_->getRoute();
+    if (points.size() <= 0)
+        points = density_route_->getRoute();
+    
     
     gps_extent_minx_ = points[0].m_x;
     gps_extent_miny_ = points[0].m_y;
@@ -127,32 +131,7 @@ void wxImagePanel::GetTileRange() {
 }
 
 // some useful events
-void wxImagePanel::mouseMoved (wxMouseEvent& event) {
-#if 0
-	current_point = -1;
-    
-	const std::vector<wxPoint2DDouble>& points = route_->getRoute();
-	for (int i = 0; i < points.size(); ++i) {
-		wxPoint pos = CalculatePos(points[i].m_x, points[i].m_y);
-		if (abs(pos.x - event.m_x) < 3 && abs(pos.y - event.m_y) < 3) {
-			if (current_point == i)
-				return;
-            
-			nearest_lines_.clear();
-			current_point = i;
-            
-			std::vector<Value> result = tree_->Query(BoostPoint(points[i].m_x, points[i].m_y), neighbers_);
-			for (int j = 0; j < result.size(); ++j) {
-				int geometry_id = result[j].second;
-				BoostLineString line = tree_->GetGeometry(geometry_id);
-				nearest_lines_.push_back(line);
-			}
-			this->Refresh();
-		}
-	}
-#endif
-}
-
+void wxImagePanel::mouseMoved (wxMouseEvent& event) {}
 void wxImagePanel::mouseDown (wxMouseEvent& event) {}
 void wxImagePanel::mouseWheelMoved (wxMouseEvent& event) {}
 void wxImagePanel::mouseReleased (wxMouseEvent& event) {}
@@ -213,16 +192,16 @@ wxImagePanel::wxImagePanel(wxFrame* parent) : wxPanel (parent) {
     density_route_ = boost::shared_ptr<Route>(new Route);
     shapefile_graph_ = boost::shared_ptr<ShapefileGraph>(new ShapefileGraph);
     mm_ = boost::shared_ptr<MM>(new MM);
+    mm_density_solver_ = boost::shared_ptr<MMDensity>(new MMDensity(tree_, density_route_, shapefile_graph_));
+    
+    this->SetOutputDir("/Volumes/My Passport/back/mm/map/cache");
+    
+    this->LoadMapDefine("/Volumes/My Passport/back/mm/map");
 }
 
 wxImagePanel::~wxImagePanel() {
 }
 
-/*
- * Called by the system of by wxWidgets when the panel needs
- * to be redrawn. You can also trigger this call by
- * calling Refresh()/Update().
- */
 void wxImagePanel::paintEvent (wxPaintEvent & evt) {
     // depending on your system you may need to look at double-buffered dcs
     wxPaintDC dc (this);
@@ -243,14 +222,6 @@ void wxImagePanel::paintEvent (wxPaintEvent & evt) {
     render(dc);
 }
 
-/*
- * Alternatively, you can use a clientDC to paint on the panel
- * at any time. Using this generally does not free you from
- * catching paint events, since it is possible that e.g. the window
- * manager throws away your drawing when the window comes to the
- * background, and expects you will redraw it when the window comes
- * back (by sending a paint event).
- */
 void wxImagePanel::paintNow() {
     // depending on your system you may need to look at double-buffered dcs
     wxClientDC dc (this);
@@ -265,8 +236,7 @@ void wxImagePanel::paintNow() {
     dc.SetPen (wxPen (backgroundColour, 1));
     wxRect windowRect (wxPoint (0, 0), GetClientSize());
     dc.DrawRectangle (windowRect);
-    
-    //wxBufferedDC dc(&client_dc);
+
     render (dc);
 }
 
@@ -280,19 +250,14 @@ wxPoint wxImagePanel::CalculatePos(double x, double y) {
     return wxPoint(pos_x, pos_y);
 }
 
-/*
- * Here we do the actual rendering. I put it in a separate
- * method so that it can work no matter what type of DC
- * (e.g. wxPaintDC or wxClientDC) is used.
- */
 void wxImagePanel::render (wxDC&  dc) {
     dc.GetSize (&w_, &h_);
-#if 1
+
     // base map tile
     if (ready_for_cache_) {
         MuiltyThreadCache (dc);
     }
-#endif
+
     // taxi route
     if (!density_route_->isEmpty()) {
         const std::vector<wxPoint2DDouble>& points = density_route_->getRoute();
@@ -482,10 +447,6 @@ void wxImagePanel::MuiltyThreadCache (wxDC& dc) {
     apply_ = false;
 }
 
-/*
- * Here we call refresh to tell the panel to draw itself again.
- * So when the user resizes the image panel the image should be resized too.
- */
 void wxImagePanel::OnSize (wxSizeEvent& event) {
     Refresh();
     //skip the event.
@@ -516,66 +477,8 @@ bool wxImagePanel::LoadDensityRoute(std::string filename) {
     }
     
     // resample
-    density_route_->Resample(15);
+    density_route_->Resample(10);
     return true;
-}
-
-void wxImagePanel::GetProjectPoint(double x1, double y1, double x2, double y2, double x, double y, double& xx, double& yy) {
-    // 两个端点在x-y方向的最大最小值
-    double xmin = x1 < x2 ? x1 : x2;
-    double xmax = x1 > x2 ? x1 : x2;
-    double ymin = y1 < y2 ? y1 : y2;
-    double ymax = y1 > y2 ? y1 : y2;
-    
-    // x最小值对应的y
-    double xmin2y = x1 < x2 ? y1 : y2;
-    // x最大值对应的y
-    double xmax2y = x1 > x2 ? y1 : y2;
-    
-    // 阈值
-    const double error_value = 0.0000001;
-    
-    // 直线参数 y = k * x + b
-    double k, b;
-    
-    // 如果线段平行于X轴
-    if (abs(y2 - y1) < error_value) {
-        if (x <= xmin)
-            xx = xmin;
-        else if (x >= xmax)
-            xx = xmax;
-        else
-            xx = x;
-        yy = y1;
-        
-    } else if (abs(x2 - x1) < error_value) {
-        // 如果线段平行于y轴
-            if (y <= ymin)
-                yy = ymin;
-            else if (y >= ymax)
-                yy = ymax;
-            else
-                yy = y;
-            
-            xx = x1;
-        } else {
-            // 如果线段不平行于x、y轴
-            k = (y2 - y1) / (x2 - x1);
-            b = y2 - k * x2;
-            
-            xx = (k * y + x - k * b) / (k * k + 1);
-            yy = k * xx + b;
-            
-            if (xx <= xmin) {
-                xx = xmin;
-                yy = xmin2y;
-            } else if (xx >= xmax) {
-                xx = xmax;
-                yy = xmax2y;
-            } else {
-                
-            }
-        }
 }
 
 bool wxImagePanel::LocatePoints(int elements) {
@@ -607,7 +510,7 @@ bool wxImagePanel::LocatePoints(int elements) {
             double x2 = line.at(1).get<0>();
             double y2 = line.at(1).get<1>();
             double xx, yy;
-            GetProjectPoint(x1, y1, x2, y2, points[i].m_x, points[i].m_y, xx, yy);
+            mm_density_solver_->GetProjectPoint(x1, y1, x2, y2, points[i].m_x, points[i].m_y, xx, yy);
             
             candinate_points.push_back(wxPoint2DDouble(xx, yy));
             
@@ -628,75 +531,8 @@ bool wxImagePanel::LocatePoints(int elements) {
 }
 
 void wxImagePanel::CalculateGroundTruth() {
-    // score function
-    // s = sd + sa
-    // sd(pi, ci) = ud - a * d(pi, ci)^nd
-    // sa(pi, ci) = ua * cos(ai,j)^na
-    double ud = 10;
-    double a = 0.17;
-    double nd = 1.4;
-    
-    double ua = 10;
-    double na = 4;
-    
     ground_truth_.clear();
-    const std::vector<wxPoint2DDouble>& points = density_route_->getRoute();
-    
-    for (int i = 0; i < points.size(); ++i) {
-        // Find nearest road to this point
-        //std::vector<Value> result = tree_->Query(EDGE, BoostPoint(points[i].m_x, points[i].m_y), 5);
-        int step_size = 50;
-        std::vector<Value> result = tree_->Query(EDGE, points[i].m_x - step_size, points[i].m_y - step_size, points[i].m_x + step_size, points[i].m_y + step_size);
-        while (result.size() <= 0) {
-            step_size += 5;
-            result = tree_->Query(EDGE, points[i].m_x - step_size, points[i].m_y - step_size, points[i].m_x + step_size, points[i].m_y + step_size);
-        }
-        
-        int best_geometry = result[0].second;
-        double best_score = 0;
-        
-        for (int j = 0; j < result.size(); ++j) {
-            int geometry_id = result[j].second;
-            BoostLineString line = tree_->GetEdge(geometry_id);
-            
-            double x1 = line.at(0).get<0>();
-            double y1 = line.at(0).get<1>();
-            double x2 = line.at(1).get<0>();
-            double y2 = line.at(1).get<1>();
-            double xx, yy;
-            GetProjectPoint(x1, y1, x2, y2, points[i].m_x, points[i].m_y, xx, yy);
-            
-            double sd = 0;
-            double dist = sqrt((points[i].m_x - xx) * (points[i].m_x - xx) + (points[i].m_y - yy) * (points[i].m_y - yy));
-            sd = ud - a * pow(dist, nd);
-            
-            double sa = 0;
-            if (i != 0) {
-                double u = x2 - x1;
-                double v = y2 - y1;
-                double m = points[i].m_x - points[i - 1].m_x;
-                double n = points[i].m_y - points[i - 1].m_y;
-                double cos_theta = (u * m + v * n) / (sqrt(u * u + v * v) * sqrt(m * m + n * n));
-                if (cos_theta < 0)
-                    cos_theta = -cos_theta;
-                
-                sa = ua * pow(cos_theta, na);
-            }
-    
-            double s = sd + sa;
-            if (best_score < s) {
-                best_score = s;
-                best_geometry = geometry_id;
-            }
-        }
-        
-        if (ground_truth_.size() == 0) {
-            ground_truth_.push_back(best_geometry);
-        } else {
-            if (best_geometry != ground_truth_[ground_truth_.size() - 1])
-                ground_truth_.push_back(best_geometry);
-        }
-    }
+    ground_truth_ = mm_density_solver_->Match();
     
     // 更新历史经验库
     for (int i = 0; i < ground_truth_.size(); ++i) {

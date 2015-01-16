@@ -9,6 +9,7 @@
 using namespace map;
 class RTree;
 class Route;
+class MMDensity;
 class ShapefileGraph;
 class wxImagePanel : public wxPanel {
     DECLARE_EVENT_TABLE()
@@ -47,8 +48,6 @@ public:
     wxPoint CalculatePos(double x, double y);
     void GetTileRange();
     
-    void GetProjectPoint(double x1, double y1, double x2, double y2, double x, double y, double& xx, double& yy);
-    
     void Reset();
     
     // MM Operations
@@ -85,6 +84,9 @@ private:
 	boost::shared_ptr<Route> route_;
     // Density route
     boost::shared_ptr<Route> density_route_;
+    
+    //
+    boost::shared_ptr<MMDensity> mm_density_solver_;
     
     std::vector<int> ground_truth_;
     
