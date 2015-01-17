@@ -107,7 +107,7 @@ bool wxImagePanel::BuildGraph(std::string filename) {
 
     
     const double thd = 500;
-    bool status = shapefile_graph_->Build(tree_, gps_extent_minx_ - thd, gps_extent_miny_ - thd, gps_extent_maxx_ + thd, gps_extent_maxy_ + thd);
+    bool status = shapefile_graph_->Build(gps_extent_minx_ - thd, gps_extent_miny_ - thd, gps_extent_maxx_ + thd, gps_extent_maxy_ + thd);
     
     return status;
 }
@@ -190,7 +190,7 @@ wxImagePanel::wxImagePanel(wxFrame* parent) : wxPanel (parent) {
 	tree_ = boost::shared_ptr<RTree>(new RTree);
 	route_ = boost::shared_ptr<Route>(new Route);
     density_route_ = boost::shared_ptr<Route>(new Route);
-    shapefile_graph_ = boost::shared_ptr<ShapefileGraph>(new ShapefileGraph);
+    shapefile_graph_ = boost::shared_ptr<ShapefileGraph>(new ShapefileGraph(tree_));
     mm_ = boost::shared_ptr<MM>(new MM);
     mm_density_solver_ = boost::shared_ptr<MMDensity>(new MMDensity(tree_, density_route_, shapefile_graph_));
     
@@ -502,7 +502,7 @@ bool wxImagePanel::LocatePoints(int elements) {
 		for (int j = 0; j < result.size(); ++j) {
 			int geometry_id = result[j].second;
 			BoostLineString line = tree_->GetEdge(geometry_id);
-            RoadInfo info = tree_->GetRoadInfo(geometry_id);
+            EdgeProperties info = tree_->GetRoadInfo(geometry_id);
             
             // 线段两个端点
             double x1 = line.at(0).get<0>();
@@ -510,7 +510,7 @@ bool wxImagePanel::LocatePoints(int elements) {
             double x2 = line.at(1).get<0>();
             double y2 = line.at(1).get<1>();
             double xx, yy;
-            mm_density_solver_->GetProjectPoint(x1, y1, x2, y2, points[i].m_x, points[i].m_y, xx, yy);
+            GeometryUtility::GetProjectPoint(x1, y1, x2, y2, points[i].m_x, points[i].m_y, xx, yy);
             
             candinate_points.push_back(wxPoint2DDouble(xx, yy));
             
@@ -519,7 +519,7 @@ bool wxImagePanel::LocatePoints(int elements) {
             colors.push_back(rand() % 255);
             candinate_points_ids.push_back(geometry_id);
             
-            shapefile_graph_->AddCandidatePoint(x1, y1, x2, y2, xx, yy, i, j, info.oneway_, geometry_id);
+            shapefile_graph_->AddCandidatePoint(xx, yy, i, j, info);
 		}
         
         candinate_points_.push_back(candinate_points);
@@ -536,12 +536,12 @@ void wxImagePanel::CalculateGroundTruth() {
     
     // 更新历史经验库
     for (int i = 0; i < ground_truth_.size(); ++i) {
-        tree_->TravelEdge(ground_truth_[i]);
+        //tree_->TravelEdge(ground_truth_[i]);
     }
 }
 
 bool wxImagePanel::ShortestPath(std::string filename) {
-    bool result = shapefile_graph_->ComputeShortestPath(filename);
+    bool result = shapefile_graph_->ComputeShortestPath();
     
     if (!result) {
         return false;
@@ -552,11 +552,9 @@ bool wxImagePanel::ShortestPath(std::string filename) {
 }
 
 void wxImagePanel::SaveGraph(std::string filename) {
-    shapefile_graph_->Save(filename);
 }
 
 void wxImagePanel::LoadGraph(std::string filename) {
-    shapefile_graph_->Load(filename);
 }
 
 void wxImagePanel::OnEraseBackground (wxEraseEvent& event) {}

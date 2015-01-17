@@ -1,134 +1,194 @@
 #include "rtree.h"
+#include "debug_utility.h"
 #include "ogrsf_frmts.h"
 
-	RTree::RTree() {
-        OGRRegisterAll();
-	}
+RTree::RTree() {
+    node_count_ = 0;
+    edge_count_ = 0;
+    
+    OGRRegisterAll();
+}
 
-	RTree::~RTree(void) {
-	}
+RTree::~RTree() {
+}
 
-    bool RTree::AddNodes(std::string map_dir) {
-#if PRINT_INFO
-        std::cout << "Add nodes to Rtree...\n";
-#endif
-        nodes_.clear();
-        node_tree_.clear();
+bool RTree::Build(std::string map_dir) {
+    return (AddNodes(map_dir) && AddEdges(map_dir));
+}
 
-        std::string file = map_dir + "/mm/nodes.shp";
-        OGRDataSource* data_source = OGRSFDriverRegistrar::Open(file.c_str(), FALSE);
-        if (data_source == NULL) {
-            return false;
-        }
+std::vector<Value> RTree::Query(QueryType type, double xmin, double ymin, double xmax, double ymax) {
+    BoostBox query_box(BoostPoint(xmin, ymin), BoostPoint(xmax, ymax));
+    std::vector<Value> results;
+    if (type == EDGE)
+        edge_tree_.query(bgi::intersects(query_box), std::back_inserter(results));
+    else
+        node_tree_.query(bgi::intersects(query_box), std::back_inserter(results));
+    
+    return results;
+}
 
-        OGRLayer* layer = data_source->GetLayer(0);
-        OGRFeature* feature = layer->GetNextFeature();
-        int feature_count = 0;
-        while (feature != NULL) {
-            // feature geometry
-            OGRGeometry* poGeometry = feature->GetGeometryRef();
-            if (poGeometry == NULL || wkbFlatten(poGeometry->getGeometryType()) != wkbPoint) {
-                OGRFeature::DestroyFeature (feature);
-                feature = layer->GetNextFeature();
-                continue;
-            }
+std::vector<Value> RTree::Query(QueryType type, BoostPoint pt, int elements) {
+    std::vector<Value> results;
+    if (type == EDGE)
+        edge_tree_.query(bgi::nearest(pt, elements), std::back_inserter(results));
+    else
+        node_tree_.query(bgi::nearest(pt, elements), std::back_inserter(results));
+    
+    return results;
+}
 
-            // feature
-            OGRPoint *point = (OGRPoint*) poGeometry;
-            BoostPoint boost_point(point->getX(), point->getY());
-
-            nodes_.insert(std::make_pair(feature_count, boost_point));
-
-            // RTree
-            BoostBox b = bg::return_envelope<BoostBox>(boost_point);
-            node_tree_.insert(std::make_pair(b, feature_count));
-            feature_count++;
-
+bool RTree::AddNodes(std::string map_dir) {
+    DebugUtility::Print(DebugUtility::Normal, "Add nodes to Rtree...");
+    nodes_.clear();
+    node_tree_.clear();
+    
+    std::string file = map_dir + "/mm/nodes.shp";
+    OGRDataSource* data_source = OGRSFDriverRegistrar::Open(file.c_str(), FALSE);
+    if (data_source == NULL) {
+        DebugUtility::Print(DebugUtility::Error, "Open " + file + " fail!");
+        return false;
+    }
+    
+    OGRLayer* layer = data_source->GetLayer(0);
+    OGRFeature* feature = layer->GetNextFeature();
+    while (feature != NULL) {
+        // feature geometry
+        OGRGeometry* poGeometry = feature->GetGeometryRef();
+        if (poGeometry == NULL || wkbFlatten(poGeometry->getGeometryType()) != wkbPoint) {
             OGRFeature::DestroyFeature (feature);
             feature = layer->GetNextFeature();
+            continue;
         }
-        return true;
+        
+        // feature
+        OGRPoint *point = (OGRPoint*) poGeometry;
+        VertexProperties info = {
+            node_count_, // int id_;
+            -1, //int gps_id_;
+            -1, //int candidate_id_;
+            point->getX(), point->getY()//double location_x_, location_y_;
+        };
+        
+        this->InsertNode(point->getX(), point->getY(), info);
+        
+        OGRFeature::DestroyFeature (feature);
+        feature = layer->GetNextFeature();
     }
+    
+    return true;
+}
 
-    bool RTree::AddEdges(std::string map_dir) {
-#if PRINT_INFO
-        std::cout << "Add edges to Rtree...\n";
-#endif
-        edges_.clear();
-        edge_tree_.clear();
-
-        std::string file = map_dir + "/mm/edges.shp";
-        OGRDataSource* data_source = OGRSFDriverRegistrar::Open(file.c_str(), FALSE);
-        if (data_source == NULL) {
-            return false;
-        }
-
-        OGRLayer* layer = data_source->GetLayer(0);
-        OGRFeature* feature = layer->GetNextFeature();
-        int feature_count = 0;
-        while (feature != NULL) {
-            // feature geometry
-            OGRGeometry* poGeometry = feature->GetGeometryRef();
-            if (poGeometry == NULL || wkbFlatten(poGeometry->getGeometryType()) != wkbLineString) {
-                OGRFeature::DestroyFeature (feature);
-                feature = layer->GetNextFeature();
-                continue;
-            }
-            // info
-            RoadInfo info;
-            info.oneway_ = feature->GetFieldAsInteger("oneway");
-            info.travel_counts_ = 0;
-            //info.name_ = feature->GetFieldAsString("name");
-            info_.insert(std::make_pair(feature_count, info));
-
-            // feature
-            OGRLineString *line_string = (OGRLineString*) poGeometry;
-            BoostLineString boost_line;
-            for (int i = 0; i < line_string->getNumPoints(); ++i) {
-                OGRPoint point;
-                line_string->getPoint(i, &point);
-
-                boost_line.push_back(BoostPoint(point.getX(), point.getY()));
-            }
-            edges_.insert(std::make_pair(feature_count, boost_line));
-
-            // RTree
-            BoostBox b = bg::return_envelope<BoostBox>(boost_line);
-            edge_tree_.insert(std::make_pair(b, feature_count));
-            feature_count++;
-
+bool RTree::AddEdges(std::string map_dir) {
+    DebugUtility::Print(DebugUtility::Normal, "Add edges to Rtree...");
+    edges_.clear();
+    edge_tree_.clear();
+    
+    std::string file = map_dir + "/mm/edges.shp";
+    OGRDataSource* data_source = OGRSFDriverRegistrar::Open(file.c_str(), FALSE);
+    if (data_source == NULL) {
+        DebugUtility::Print(DebugUtility::Error, "Open " + file + " fail!");
+        return false;
+    }
+    
+    OGRLayer* layer = data_source->GetLayer(0);
+    OGRFeature* feature = layer->GetNextFeature();
+    while (feature != NULL) {
+        // feature geometry
+        OGRGeometry* poGeometry = feature->GetGeometryRef();
+        if (poGeometry == NULL || wkbFlatten(poGeometry->getGeometryType()) != wkbLineString) {
             OGRFeature::DestroyFeature (feature);
             feature = layer->GetNextFeature();
+            continue;
         }
-        return true;
+        
+        // road
+        OGRLineString *line_string = (OGRLineString*) poGeometry;
+        OGRPoint start, end;
+        line_string->StartPoint(&start);
+        line_string->EndPoint(&end);
+        // info
+        EdgeProperties info = {
+            edge_count_, // int id_;
+            GeometryUtility::Distance(start.getX(), start.getY(), end.getX(), end.getY()), // double weight_;
+            feature->GetFieldAsInteger("oneway"), // int oneway_;
+            0 // int travel_counts_;
+            
+        };
+        
+        this->InsertRoad(start.getX(), start.getY(), end.getX(), end.getY(), info);
+       
+        OGRFeature::DestroyFeature (feature);
+        feature = layer->GetNextFeature();
     }
+    
+    return true;
+}
 
-	bool RTree::Build(std::string map_dir) {
-        return (AddNodes(map_dir) && AddEdges(map_dir));
-	}
+void RTree::InsertNode(double x, double y, VertexProperties info) {
+    node_info_.insert(std::make_pair(node_count_, info));
+    
+    BoostPoint boost_point(x, y);
+    nodes_.insert(std::make_pair(node_count_, boost_point));
+    
+    // RTree
+    BoostBox b = bg::return_envelope<BoostBox>(boost_point);
+    node_tree_.insert(std::make_pair(b, node_count_));
+    
+    ++node_count_;
+}
 
-	std::vector<Value> RTree::Query(QueryType type, double xmin, double ymin, double xmax, double ymax) {
-		BoostBox query_box(BoostPoint(xmin, ymin), BoostPoint(xmax, ymax));
-		std::vector<Value> results;
-        if (type == EDGE)
-            edge_tree_.query(bgi::intersects(query_box), std::back_inserter(results));
-        else
-            node_tree_.query(bgi::intersects(query_box), std::back_inserter(results));
+void RTree::InsertRoad(double x1, double y1, double x2, double y2, EdgeProperties info) {
+    // edge node map
+    std::vector<int> node_index;
+    node_index.resize(2);
+    bool find_start = false;
+    bool find_end = false;
+    for (int i = 0; i < node_info_.size(); ++i) {
+        if (GeometryUtility::PointEqual(x1, y1, node_info_[i].location_x_, node_info_[i].location_y_)) {
+            node_index[0] = node_info_.at(i).id_;
+            find_start = true;
+        }
+        
+        if (GeometryUtility::PointEqual(x2, y2, node_info_[i].location_x_, node_info_[i].location_y_)) {
+            node_index[1] = node_info_.at(i).id_;
+            find_end = true;
+        }
+    }
+    
+    if (find_start && find_end) {
+        edge_node_map_.insert(std::make_pair(edge_count_, node_index));
+    } else {
+        DebugUtility::Print(DebugUtility::Warning, "insert an invalid road!");
+        return ;
+    }
+    
+    
+    edge_info_.insert(std::make_pair(edge_count_, info));
+    
+    BoostLineString boost_line;
+    boost_line.push_back(BoostPoint(x1, y1));
+    boost_line.push_back(BoostPoint(x2, y2));
+    edges_.insert(std::make_pair(edge_count_, boost_line));
+    
+    // RTree
+    BoostBox b = bg::return_envelope<BoostBox>(boost_line);
+    edge_tree_.insert(std::make_pair(b, edge_count_));
+    
+    edge_count_++;
+}
 
-		return results;
-	}
+void RTree::PrintLine(int id) {
+    BoostLineString line = this->GetEdge(id);
+    
+    double x1 = line.at(0).get<0>();
+    double y1 = line.at(0).get<1>();
+    double x2 = line.at(1).get<0>();
+    double y2 = line.at(1).get<1>();
+    
+    std::cout << "(x1, y1), (x2, y2) = (" << x1 << ", " << y1 << "), (" << x2 << ", " << y2 << ")\n";
+}
 
-	std::vector<Value> RTree::Query(QueryType type, BoostPoint pt, int elements) {
-		std::vector<Value> results;
-        if (type == EDGE)
-            edge_tree_.query(bgi::nearest(pt, elements), std::back_inserter(results));
-        else
-            node_tree_.query(bgi::nearest(pt, elements), std::back_inserter(results));
-
-		return results;
-	}
-
-void RTree::TravelEdge(int id) {
-    info_[id].travel_counts_++;
-  //  std::cout << "Edge " << id << " travel count = " << info_[id].travel_counts_ << std::endl;
+void RTree::PrintPoint(int id) {
+    BoostPoint point = this->GetNode(id);
+    std::cout << "(x1, y1) = (" << point.get<0>() << ", " << point.get<1>() << ")\n";
 }

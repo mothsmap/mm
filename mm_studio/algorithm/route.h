@@ -1,5 +1,5 @@
-#ifndef ROUTE_H_
-#define ROUTE_H_
+#ifndef __route__hh__
+#define __route__hh__
 
 #include <string>
 #include <vector>
@@ -11,8 +11,13 @@ public:
     Route(void);
      ~Route(void);
     
-    // Load data from shapefile
+    // 从shapefile中加载
     bool Load(std::string);
+    
+    // 插入顶点
+    void InsertNode(double x, double y);
+    
+    // 重采样
     void Resample(double res);
     
     inline bool isEmpty() { return route_.size() <= 0; }

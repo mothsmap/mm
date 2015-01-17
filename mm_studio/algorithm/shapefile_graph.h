@@ -1,34 +1,13 @@
-//
-//  ShapefileGraph.h
-//  mm
-//
-//  Created by Xu Xiang on 14-9-22.
-//
-//
+#ifndef __shapefile__graph__hh__
+#define __shapefile__graph__hh__
 
-#ifndef __mm__ShapefileGraph__
-#define __mm__ShapefileGraph__
-
-#include <iostream>
 #include <boost/config.hpp>
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/dijkstra_shortest_paths.hpp>
 #include <boost/graph/adjacency_list.hpp>
 #include "rtree.h"
 
-struct VertexProperties {
-    int id_;
-    int gps_id_;
-    int candidate_id_;
-    double location_x_, location_y_; // the coordinate of this vertex
-};
-
-struct EdgeProperties {
-    int id_;
-    double weight_;
-};
-
-// Use Undirected graph to represent road network for convinience
+// 使用无向图表示路网（最好是用有向图）
 typedef boost::adjacency_list<boost::listS, boost::vecS, boost::undirectedS, VertexProperties, EdgeProperties> Graph;
 
 typedef boost::graph_traits<Graph>::vertex_descriptor vertex_descriptor;
@@ -80,34 +59,42 @@ struct ShortestPath {
 
 class ShapefileGraph {
 public:
-    ShapefileGraph() { id_max_ = 0; }
+    ShapefileGraph(boost::shared_ptr<RTree> rtree);
     ~ShapefileGraph() {}
 
-    bool Build(std::string map_dir);
-    bool Build(boost::shared_ptr<RTree> rtree, double minx, double miny, double maxx, double maxy);
-    bool Save(std::string map_dir);
-    bool Load(std::string map_dir);
-    bool ComputeShortestPath(std::string map_dir);
+    // 建立图
+    bool Build(double minx, double miny, double maxx, double maxy);
+    
+    // 添加候选点
+    bool AddCandidatePoint(double cx, double cy, int gps_id, int candidate_id, EdgeProperties edge);
+    
+    // 计算候选点之间的最短路径
+    bool ComputeShortestPath();
 
-    bool AddCandidatePoint(double sx, double sy, double ex, double ey, double cx, double cy, int gps_id, int candidate_id, int oneway, int road_id);
-
+    // 得到最短路径集合
     inline std::vector<ShortestPath>& GetShortestPaths() { return shortest_paths_; }
 
-    void GetPath(std::vector<Graph::edge_descriptor> edges, std::vector<BoostPoint>& points_in_path);
-
-    void NormalizeShortestPathLengths();
-
-    double GetMaxLength();
+    inline bool HasEdgeOnVertex(int id) { return edges_on_vertex_.find(id) != edges_on_vertex_.end(); }
+    inline std::vector<int>& GetEdgeOnVertex(int id) { return edges_on_vertex_.at(id); }
     
+    // 重置图
     void Reset();
-private:
-    bool HasVertex(double location_x, double location_y);
-
+    
+    void UpdateEdgeOnVertex(int vertex_id, int edge_id);
+    
+    void PrintShortestPath();
+    void PrintEdgesOnVertex();
 private:
     Graph graph_;
-    int id_max_;
+    
+    boost::shared_ptr<RTree> tree_;
+    
+    std::map<int, vertex_descriptor> vertex_;
+    std::map<int, std::vector<int> > edges_on_vertex_;
+    
     std::vector<ShortestPath> shortest_paths_;
     std::vector<std::pair<int, vertex_descriptor> > candidate_vertex_;
+    int candidate_vertex_count_;
 };
 
-#endif /* defined(__mm__ShapefileGraph__) */
+#endif

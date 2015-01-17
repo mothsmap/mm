@@ -37,6 +37,10 @@ bool Route::Load(std::string filename) {
     return true;
 }
 
+void Route::InsertNode(double x, double y) {
+    route_.push_back(wxPoint2DDouble(x, y));
+}
+
 void Route::Resample(double res) {
     std::vector<wxPoint2DDouble> resampled_route_;
     resampled_route_.push_back(route_[0]);

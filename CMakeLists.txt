@@ -173,6 +173,7 @@ set(frame_src
 
 set(algorithm_src
 mm_studio/algorithm/boost_geometry.h
+mm_studio/algorithm/debug_utility.h
 mm_studio/algorithm/route.h
 mm_studio/algorithm/route.cpp
 mm_studio/algorithm/rtree.h
@@ -192,17 +193,19 @@ mm_studio/algorithm/scale_model.h
 mm_studio/algorithm/scale_model.cpp
   )
 
-add_executable(mm
+add_library(mm STATIC ${algorithm_src})
+
+add_executable(mm_studio
   ${frame_src}
-  ${algorithm_src}
 )
 
 add_executable(mm_test
-mm_test/test.cpp
+  mm_test/test.cpp
 )
 
-target_link_libraries(mm ${COMMOM_LIBS})
-target_link_libraries(mm_test ${COMMOM_LIBS})
+target_link_libraries(mm ${COMMON_LIBS})
+target_link_libraries(mm_studio mm ${COMMOM_LIBS})
+target_link_libraries(mm_test mm ${COMMOM_LIBS})
 
 source_group(frame FILES ${frame_src})
 source_group(algorithm FILES ${algorithm_src})
