@@ -12,8 +12,8 @@ RTree::RTree() {
 RTree::~RTree() {
 }
 
-bool RTree::Build(std::string map_dir) {
-    return (AddNodes(map_dir) && AddEdges(map_dir));
+bool RTree::Build(std::string map_dir, double xmin, double ymin, double xmax, double ymax) {
+    return (AddNodes(map_dir, xmin, ymin, xmax, ymax) && AddEdges(map_dir, xmin, ymin, xmax, ymax));
 }
 
 std::vector<Value> RTree::Query(QueryType type, double xmin, double ymin, double xmax, double ymax) {
@@ -37,7 +37,7 @@ std::vector<Value> RTree::Query(QueryType type, BoostPoint pt, int elements) {
     return results;
 }
 
-bool RTree::AddNodes(std::string map_dir) {
+bool RTree::AddNodes(std::string map_dir, double xmin, double ymin, double xmax, double ymax) {
     DebugUtility::Print(DebugUtility::Normal, "Add nodes to Rtree...");
     nodes_.clear();
     node_tree_.clear();
@@ -50,6 +50,8 @@ bool RTree::AddNodes(std::string map_dir) {
     }
     
     OGRLayer* layer = data_source->GetLayer(0);
+    layer->SetSpatialFilterRect(xmin, ymin, xmax, ymax);
+    layer->ResetReading();
     OGRFeature* feature = layer->GetNextFeature();
     while (feature != NULL) {
         // feature geometry
@@ -78,7 +80,7 @@ bool RTree::AddNodes(std::string map_dir) {
     return true;
 }
 
-bool RTree::AddEdges(std::string map_dir) {
+bool RTree::AddEdges(std::string map_dir, double xmin, double ymin, double xmax, double ymax) {
     DebugUtility::Print(DebugUtility::Normal, "Add edges to Rtree...");
     edges_.clear();
     edge_tree_.clear();
@@ -91,6 +93,8 @@ bool RTree::AddEdges(std::string map_dir) {
     }
     
     OGRLayer* layer = data_source->GetLayer(0);
+    layer->SetSpatialFilterRect(xmin, ymin, xmax, ymax);
+    layer->ResetReading();
     OGRFeature* feature = layer->GetNextFeature();
     while (feature != NULL) {
         // feature geometry
@@ -191,4 +195,20 @@ void RTree::PrintLine(int id) {
 void RTree::PrintPoint(int id) {
     BoostPoint point = this->GetNode(id);
     std::cout << "(x1, y1) = (" << point.get<0>() << ", " << point.get<1>() << ")\n";
+}
+
+void RTree::Reset() {
+    edge_tree_.clear();
+    node_tree_.clear();
+    
+    edges_.clear();
+    edge_info_.clear();
+    
+    nodes_.clear();
+    node_info_.clear();
+    
+    edge_node_map_.clear();
+    
+    edge_count_ = 0;
+    node_count_ = 0;
 }

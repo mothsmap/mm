@@ -32,7 +32,7 @@ public:
     
     /************** 构建函数 *************************/
     // 给定路网的结点和边所在的目录，建立R树
-    bool Build(std::string map_dir);
+    bool Build(std::string map_dir, double xmin, double ymin, double xmax, double ymax);
     
     // 插入结点
     void InsertNode(double x, double y, VertexProperties info);
@@ -63,10 +63,11 @@ public:
     void PrintLine(int id);
     void PrintPoint(int id);
     
+    void Reset();
 private:
     // Build函数的辅助函数
-    bool AddNodes(std::string map_dir);
-    bool AddEdges(std::string map_dir);
+    bool AddNodes(std::string map_dir, double xmin, double ymin, double xmax, double ymax);
+    bool AddEdges(std::string map_dir, double xmin, double ymin, double xmax, double ymax);
     
 private:
     Boost_RTree edge_tree_, node_tree_;

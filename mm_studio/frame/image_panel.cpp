@@ -75,6 +75,9 @@ bool wxImagePanel::LoadMapDefine(wxString map_folder) {
     
     ready_for_cache_ = true;
     
+    gps_extent_minx_ = gps_extent_miny_ = std::numeric_limits<double>::max();
+    gps_extent_maxx_ = gps_extent_maxy_ = std::numeric_limits<double>::min();
+    
     this->Refresh();
     
     return true;
@@ -82,30 +85,13 @@ bool wxImagePanel::LoadMapDefine(wxString map_folder) {
 
 bool wxImagePanel::BuildRTree(std::string filename) {
 	// build spatial tree
-	bool status = tree_->Build(filename);
+    const double thd = 500;
+	bool status = tree_->Build(filename, gps_extent_minx_ - thd, gps_extent_miny_ - thd, gps_extent_maxx_ + thd, gps_extent_maxy_ + thd);
+    
 	return status;
 }
 
 bool wxImagePanel::BuildGraph(std::string filename) {
-
-    std::vector<wxPoint2DDouble> points = route_->getRoute();
-    if (points.size() <= 0)
-        points = density_route_->getRoute();
-    
-    
-    gps_extent_minx_ = points[0].m_x;
-    gps_extent_miny_ = points[0].m_y;
-    gps_extent_maxx_ = points[0].m_x;
-    gps_extent_maxy_ = points[0].m_y;;
-
-    for (int i = 0; i < points.size(); ++i) {
-            gps_extent_minx_ = gps_extent_minx_ < points[i].m_x ? gps_extent_minx_ : points[i].m_x;
-            gps_extent_miny_ = gps_extent_miny_ < points[i].m_y ? gps_extent_miny_ : points[i].m_y;
-            gps_extent_maxx_ = gps_extent_maxx_ > points[i].m_x ? gps_extent_maxx_ : points[i].m_x;
-            gps_extent_maxy_ = gps_extent_maxy_ > points[i].m_y ? gps_extent_maxy_ : points[i].m_y;
-    }
-
-    
     const double thd = 500;
     bool status = shapefile_graph_->Build(gps_extent_minx_ - thd, gps_extent_miny_ - thd, gps_extent_maxx_ + thd, gps_extent_maxy_ + thd);
     
@@ -467,6 +453,14 @@ bool wxImagePanel::LoadRoute(std::string filename) {
         return false;
     }
     
+    std::vector<wxPoint2DDouble> points = route_->getRoute();
+    for (int i = 0; i < points.size(); ++i) {
+        gps_extent_minx_ = gps_extent_minx_ < points[i].m_x ? gps_extent_minx_ : points[i].m_x;
+        gps_extent_miny_ = gps_extent_miny_ < points[i].m_y ? gps_extent_miny_ : points[i].m_y;
+        gps_extent_maxx_ = gps_extent_maxx_ > points[i].m_x ? gps_extent_maxx_ : points[i].m_x;
+        gps_extent_maxy_ = gps_extent_maxy_ > points[i].m_y ? gps_extent_maxy_ : points[i].m_y;
+    }
+    
     return true;
 }
 
@@ -478,6 +472,15 @@ bool wxImagePanel::LoadDensityRoute(std::string filename) {
     
     // resample
     density_route_->Resample(10);
+    
+    std::vector<wxPoint2DDouble> points = density_route_->getRoute();
+    for (int i = 0; i < points.size(); ++i) {
+        gps_extent_minx_ = gps_extent_minx_ < points[i].m_x ? gps_extent_minx_ : points[i].m_x;
+        gps_extent_miny_ = gps_extent_miny_ < points[i].m_y ? gps_extent_miny_ : points[i].m_y;
+        gps_extent_maxx_ = gps_extent_maxx_ > points[i].m_x ? gps_extent_maxx_ : points[i].m_x;
+        gps_extent_maxy_ = gps_extent_maxy_ > points[i].m_y ? gps_extent_maxy_ : points[i].m_y;
+    }
+    
     return true;
 }
 
@@ -579,6 +582,8 @@ bool wxImagePanel::RL() {
 
 void wxImagePanel::Reset() {
     route_->Reset();
+    tree_->Reset();
+    density_route_->Reset();
     shapefile_graph_->Reset();
     mm_->Clear();
     parsing_result_.clear();
@@ -586,7 +591,10 @@ void wxImagePanel::Reset() {
     candinate_points_.clear();
     candinate_points_colors_.clear();
     candinate_points_ids_.clear();
-
+    ground_truth_.clear();
+    
+    gps_extent_minx_ = gps_extent_miny_ = std::numeric_limits<double>::max();
+    gps_extent_maxx_ = gps_extent_maxy_ = std::numeric_limits<double>::min();
 }
 
 void wxImagePanel::GetTilePos(int index, int& row, int& col) {
