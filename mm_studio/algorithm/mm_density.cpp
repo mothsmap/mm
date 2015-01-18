@@ -18,6 +18,8 @@ MMDensity::~MMDensity() {
 }
 
 std::vector<int>& MMDensity::Match() {
+    const int advance_size = 5;
+    
     // GPS 点序列
     const std::vector<wxPoint2DDouble>& points = route_->getRoute();
     DebugUtility::Print(DebugUtility::Normal, "match " + boost::lexical_cast<std::string>(points.size()) + " GPS points");
@@ -47,56 +49,80 @@ std::vector<int>& MMDensity::Match() {
     // 当前边的起始点
     int start_outer = -1;
     
-    // 是否要前往下个GPS点
-    bool advance_outer;
+    int repeat_count = 0;
+    int pre_gps;
     
     while (current_gps < points.size()) {
-        DebugUtility::Print(DebugUtility::Normal, "GPS #" + boost::lexical_cast<std::string>(current_gps) + " has " + boost::lexical_cast<std::string>(edge_set.size()) + " candidate edges");
-        DebugUtility::Print(DebugUtility::Verbose, "Pre edge " + boost::lexical_cast<std::string>(pre_edge));
-        DebugUtility::Print(DebugUtility::Verbose, "start vertex " + boost::lexical_cast<std::string>(start_outer));
+        if (pre_gps == current_gps) {
+            repeat_count++;
+        } else {
+            repeat_count = 0;
+        }
+        
+        if (repeat_count > 10) {
+            std::cout << "Solve a dead loop!\n";
+            current_gps++;
+            repeat_count = 0;
+        }
+        
+        pre_gps = current_gps;
+        //std::cout << "current gps: " << current_gps << std::endl;
+        
+        DebugUtility::Print(DebugUtility::Normal, "GPS #" + boost::lexical_cast<std::string>(current_gps) + " has " + boost::lexical_cast<std::string>(edge_set.size()) + " candidate edges\n" +
+                            "Pre edge " + boost::lexical_cast<std::string>(pre_edge) + "\n" +
+                            "start vertex " + boost::lexical_cast<std::string>(start_outer));
         
         // 当前GPS点匹配的最佳得分
         double best_score = -10000000000.0;
         
         // 最佳匹配边
         int best_edge_id = -1;
+        // 是否要前往下个GPS点
+        bool advance_outer;
         
         int start_tmp = start_outer;
         // 循环处理当前GPS点的候选边集，寻找最佳边
         for (int i = 0; i < edge_set.size(); ++i) {
-            // TODO: start _outer will change!!!
             int start = start_tmp;
             
-            DebugUtility::Print(DebugUtility::Verbose, "Processing edge " + boost::lexical_cast<std::string>(edge_set[i]) + ", start = " + boost::lexical_cast<std::string>(start));
+            DebugUtility::Print(DebugUtility::Normal, "Processing edge " + boost::lexical_cast<std::string>(edge_set[i]) + ", start = " + boost::lexical_cast<std::string>(start));
             
             // 首先将该GPS点匹配到当前边
             bool advance;
             double score;
             this->MatchPoint2Edge(current_gps, edge_set[i], pre_edge, score, advance, start);
-            DebugUtility::Print(DebugUtility::Verbose, "\t Match GPS point " + boost::lexical_cast<std::string>(current_gps) + " to edge... score = " + boost::lexical_cast<std::string>(score) + ", start = " + boost::lexical_cast<std::string>(start));
+            DebugUtility::Print(DebugUtility::Normal, "\t Match GPS point " + boost::lexical_cast<std::string>(current_gps) + " to edge... score = " + boost::lexical_cast<std::string>(score) + ", start = " + boost::lexical_cast<std::string>(start));
             
             // 往前探索3步
             int pre_edge_inside = edge_set[i];
             int current_gps_inside = current_gps;
             int start_inside = start;
             bool advance_inside = advance;
-            for (int i = 1; i <= 3; ++i) {
-                if (current_gps_inside >= route_->getRoute().size())
-                    break;
-                
-                DebugUtility::Print(DebugUtility::Verbose, "\t\t Advance step " + boost::lexical_cast<std::string>(i));
+            for (int i = 1; i <= advance_size; ++i) {
+                DebugUtility::Print(DebugUtility::Normal, "\t\t Advance step " + boost::lexical_cast<std::string>(i));
                 
                 double score_inside;
                 std::vector<int> edge_set_inside;
                 int edge_inside;
                 
-                this->UpdatePointAndCandidateEdge(advance_inside, start_inside, edge_set_inside, current_gps_inside);
+                this->UpdatePointAndCandidateEdge(advance_inside, start_inside, pre_edge_inside, edge_set_inside, current_gps_inside);
                 
-                DebugUtility::Print(DebugUtility::Verbose, "\t\t Update GPS point and Candidate edge set... current gps = " + boost::lexical_cast<std::string>(current_gps_inside) + ", edge set size = " + boost::lexical_cast<std::string>(edge_set_inside.size()));
+                if (edge_set_inside.size() == 0) {
+                    score += -10000;
+                    break;
+                }
+                
+                if (current_gps_inside >= route_->getRoute().size()) {
+                    DebugUtility::Print(DebugUtility::Warning, "Reach the end of GPS point");
+                    score += 10.0;
+                    break;
+                }
+                
+                DebugUtility::Print(DebugUtility::Normal, "\t\t Update GPS point and Candidate edge set... current gps = " + boost::lexical_cast<std::string>(current_gps_inside) + ", edge set size = " + boost::lexical_cast<std::string>(edge_set_inside.size()));
                 
                 
                 this->MatchPoint2EdgeSet(current_gps_inside, edge_set_inside, pre_edge_inside, score_inside, advance_inside, edge_inside, start_inside);
-                DebugUtility::Print(DebugUtility::Verbose, "\t\t Match GPS point and Candidate edge set... score = " + boost::lexical_cast<std::string>(score_inside) + ", matched edge = " + boost::lexical_cast<std::string>(edge_inside) + ", start inside = " + boost::lexical_cast<std::string>(start_inside));
+                DebugUtility::Print(DebugUtility::Normal, "\t\t Match GPS point and Candidate edge set... score = " + boost::lexical_cast<std::string>(score_inside) + ", matched edge = " + boost::lexical_cast<std::string>(edge_inside) + ", start inside = " + boost::lexical_cast<std::string>(start_inside));
                 
                 score += score_inside;
                 pre_edge_inside = edge_inside;
@@ -108,7 +134,7 @@ std::vector<int>& MMDensity::Match() {
                 advance_outer = advance;
                 start_outer = start;
                 
-                DebugUtility::Print(DebugUtility::Verbose, "\tUpdate best edge... best score = " + boost::lexical_cast<std::string>(score) + ", best edge = " + boost::lexical_cast<std::string>(best_edge_id) + ", start = " + boost::lexical_cast<std::string>(start_outer));
+                DebugUtility::Print(DebugUtility::Normal, "\tUpdate best edge... best score = " + boost::lexical_cast<std::string>(score) + ", best edge = " + boost::lexical_cast<std::string>(best_edge_id) + ", start = " + boost::lexical_cast<std::string>(start_outer));
             }
             
         } // for (int i = 0; i < edge_set.size(); ++i)
@@ -120,11 +146,12 @@ std::vector<int>& MMDensity::Match() {
                             boost::lexical_cast<std::string>(tree_->GetEdge(best_edge_id).at(1).get<0>()) + ", " +
                             boost::lexical_cast<std::string>(tree_->GetEdge(best_edge_id).at(1).get<1>()) + "]");
         
-        DebugUtility::Print(DebugUtility::Verbose, "\tBest score = " + boost::lexical_cast<std::string>(best_score));
+        DebugUtility::Print(DebugUtility::Normal, "\tBest score = " + boost::lexical_cast<std::string>(best_score));
         
-        this->UpdatePointAndCandidateEdge(advance_outer, start_outer, edge_set, current_gps);
-        DebugUtility::Print(DebugUtility::Verbose, "Update GPS point and Candidate edge set... current gps = " + boost::lexical_cast<std::string>(current_gps) + ", edge set size = " + boost::lexical_cast<std::string>(edge_set.size()) + ", start vertex: " + boost::lexical_cast<std::string>(start_outer));
-        
+        this->UpdatePointAndCandidateEdge(advance_outer, start_outer, pre_edge, edge_set, current_gps);
+        DebugUtility::Print(DebugUtility::Normal, "Update GPS point and Candidate edge set... current gps = " + boost::lexical_cast<std::string>(current_gps) + ", edge set size = " + boost::lexical_cast<std::string>(edge_set.size()) + ", start vertex: " + boost::lexical_cast<std::string>(start_outer) + ", advance outer: " +
+                            boost::lexical_cast<std::string>(advance_outer));
+       
         match_.push_back(best_edge_id);
         pre_edge = best_edge_id;
     }
@@ -133,17 +160,17 @@ std::vector<int>& MMDensity::Match() {
 }
 
 void MMDensity::MatchPoint2Edge(int point_id, int edge, int pre_edge, double& score, bool& advance, int& start) {
-    DebugUtility::Print(DebugUtility::Verbose, "start = " + boost::lexical_cast<std::string>(start));
+   // DebugUtility::Print(DebugUtility::Verbose, "start = " + boost::lexical_cast<std::string>(start));
     
     // score function
     // s = sd + sa
     // sd(pi, ci) = ud - a * d(pi, ci)^nd
     // sa(pi, ci) = ua * cos(ai,j)^na
-    double ud = 10;
+    double ud = 400; // 10
     double a = 0.17;
     double nd = 1.4;
     
-    double ua = 10;
+    double ua = 100; // 10
     double na = 4;
     
     // GPS 点
@@ -180,6 +207,7 @@ void MMDensity::MatchPoint2Edge(int point_id, int edge, int pre_edge, double& sc
     // 投影点
     double xx, yy;
     advance = GeometryUtility::GetProjectPoint(x1, y1, x2, y2, x, y, xx, yy);
+    
     DebugUtility::Print(DebugUtility::Verbose, "\t\t\tGet projection point detail (inside, x, y) = (" +
                         boost::lexical_cast<std::string>(advance) + ", " +
                         boost::lexical_cast<std::string>(xx) + ", " +
@@ -299,7 +327,7 @@ void MMDensity::UpdateStart(int& start, int edge_id, int pre_edge) {
     }
 }
 
-void MMDensity::UpdatePointAndCandidateEdge(bool inside, int start, std::vector<int>& edge_set, int& point_id) {
+void MMDensity::UpdatePointAndCandidateEdge(bool inside, int start, int pre_edge, std::vector<int>& edge_set, int& point_id) {
     edge_set.clear();
     
     if (!shapefile_graph_->HasEdgeOnVertex(start)) {
@@ -307,13 +335,30 @@ void MMDensity::UpdatePointAndCandidateEdge(bool inside, int start, std::vector<
         return;
     }
     
-    edge_set = shapefile_graph_->GetEdgeOnVertex(start);
+    std::vector<int> full_edge_set = shapefile_graph_->GetEdgeOnVertex(start);
+    
+    if (inside) {
+        point_id++;
+        edge_set = full_edge_set;
+    } else {
+        for (int i = 0; i < full_edge_set.size(); ++i) {
+            if (full_edge_set[i] == pre_edge)
+                continue;
+            
+            edge_set.push_back(full_edge_set[i]);
+        }
+    }
+    
+    if (edge_set.size() == 0) {
+        DebugUtility::Print(DebugUtility::Warning, "\t\t\tUpdate edge set fail, edge set size = 0, Original set size = " +
+                            boost::lexical_cast<std::string>(full_edge_set.size()));
+    }
+    
     DebugUtility::Print(DebugUtility::Verbose, "\t\t\tStart vertex " +
                         boost::lexical_cast<std::string>(start) + " has edge: " +
                         boost::lexical_cast<std::string>(edge_set.size()));
-    
-    point_id++;
     DebugUtility::Print(DebugUtility::Verbose, "\t\t\tUpdate GPS point to " + boost::lexical_cast<std::string>(point_id));
+    
 }
 
 

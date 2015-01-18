@@ -118,7 +118,7 @@ void test_density_solver() {
     route->InsertNode(50, 10);
     route->InsertNode(80, 10);
     route->InsertNode(120, 10);
-    route->InsertNode(130, 40);
+    route->InsertNode(120, 40);
     route->InsertNode(140, 40);
     route->InsertNode(160, 80);
 

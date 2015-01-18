@@ -6,7 +6,7 @@
 #include <boost/timer/timer.hpp>
 
 
-#define DebugVerbose 2
+#define DebugVerbose 1
 
 class DebugUtility {
 private:
@@ -25,7 +25,7 @@ public:
         switch (level) {
             case Verbose: {
                 if (DebugVerbose >= 4) {
-                    std::cout << ">>---Normal:\t" << message << "\t<<" << std::endl;
+                    std::cout << ">>---Verbose:\t" << message << "\t<<" << std::endl;
                 }
             }
                 break;

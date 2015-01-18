@@ -42,7 +42,7 @@ public:
     // start_x, double start_y: 当前匹配边的起点
     // edge_set: 候选边集
     // point_id: 当前GPS点
-    void UpdatePointAndCandidateEdge(bool inside, int start, std::vector<int>& edge_set, int& point_id);
+    void UpdatePointAndCandidateEdge(bool inside, int start, int pre_edge, std::vector<int>& edge_set, int& point_id);
     
     // 更新当前匹配边的起点
     void UpdateStart(int& start, int edge_id, int pre_edge);

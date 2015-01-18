@@ -85,14 +85,14 @@ bool wxImagePanel::LoadMapDefine(wxString map_folder) {
 
 bool wxImagePanel::BuildRTree(std::string filename) {
 	// build spatial tree
-    const double thd = 500;
+    const double thd = 1000;
 	bool status = tree_->Build(filename, gps_extent_minx_ - thd, gps_extent_miny_ - thd, gps_extent_maxx_ + thd, gps_extent_maxy_ + thd);
     
 	return status;
 }
 
 bool wxImagePanel::BuildGraph(std::string filename) {
-    const double thd = 500;
+    const double thd = 1000;
     bool status = shapefile_graph_->Build(gps_extent_minx_ - thd, gps_extent_miny_ - thd, gps_extent_maxx_ + thd, gps_extent_maxy_ + thd);
     
     return status;
@@ -471,7 +471,7 @@ bool wxImagePanel::LoadDensityRoute(std::string filename) {
     }
     
     // resample
-    density_route_->Resample(10);
+    density_route_->Resample(50);
     
     std::vector<wxPoint2DDouble> points = density_route_->getRoute();
     for (int i = 0; i < points.size(); ++i) {
