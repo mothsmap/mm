@@ -80,7 +80,7 @@ std::vector<int>& MMDensity::Match() {
             int current_gps_inside = current_gps;
             int start_inside = start;
             bool advance_inside = advance;
-            for (int i = 1; i <= 3; ++i) {
+            for (int i = 1; i <= 10; ++i) {
                 if (current_gps_inside >= route_->getRoute().size())
                     break;
                 

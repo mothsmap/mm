@@ -471,7 +471,7 @@ bool wxImagePanel::LoadDensityRoute(std::string filename) {
     }
     
     // resample
-    density_route_->Resample(10);
+    density_route_->Resample(100);
     
     std::vector<wxPoint2DDouble> points = density_route_->getRoute();
     for (int i = 0; i < points.size(); ++i) {
