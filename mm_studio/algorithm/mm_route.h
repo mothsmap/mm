@@ -1,5 +1,5 @@
-#ifndef __route__hh__
-#define __route__hh__
+#ifndef __mm_route__hh__
+#define __mm_route__hh__
 
 #include <string>
 #include <vector>

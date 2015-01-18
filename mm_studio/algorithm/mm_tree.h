@@ -1,7 +1,7 @@
-#ifndef __rtree__hh__
-#define __rtree__hh__
+#ifndef __mm_tree__hh__
+#define __mm_tree__hh__
 
-#include "boost_geometry.h"
+#include "geometry.h"
 
 // 路网的结点属性
 struct VertexProperties {
@@ -45,6 +45,9 @@ public:
     
     // 查询点pt相邻的elements个要素
     std::vector<Value> Query(QueryType type, BoostPoint pt, int elements);
+    
+    /************** 添加历史经验 **********************/
+    void TravelEdge(int id);
     
     /************** 获取信息 *************************/
     inline int edge_size() { return edge_count_; }

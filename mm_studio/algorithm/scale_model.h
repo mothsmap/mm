@@ -1,9 +1,8 @@
-#ifndef MY_SCALE_MODEL_H
-#define MY_SCALE_MODEL_H
+#ifndef __scale__model__hh__
+#define __scale__model__hh__
 
 //! This class is used to map a target value to an given domain with a given function.
-class ScaleModel
-{
+class ScaleModel {
 public:
     ScaleModel() {}
     ~ScaleModel() {}

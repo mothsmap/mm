@@ -1,16 +1,15 @@
-#ifndef USE_BOOST_FILES_H
-#define USE_BOOST_FILES_H
+#ifndef __geometry__hh__
+#define __geometry__hh__
 
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/geometries.hpp>
-#include <boost/geometry/multi/geometries/multi_geometries.hpp>
 #include <boost/geometry/index/rtree.hpp>
+#include <boost/geometry/multi/geometries/multi_geometries.hpp>
 #include <boost/variant.hpp>
-
-#include <vector>
+#include <iostream>
 #include <map>
 #include <string>
-#include <iostream>
+#include <vector>
 
 #define PRINT_INFO 1
 #define VERY_SMALL_NUMBER 0.001

@@ -1,9 +1,9 @@
-#include "mm_density.h"
-#include "rtree.h"
-#include "route.h"
-#include "shapefile_graph.h"
-#include "debug_utility.h"
 #include <boost/lexical_cast.hpp>
+#include "debug.h"
+#include "mm_density_solver.h"
+#include "mm_graph.h"
+#include "mm_route.h"
+#include "mm_tree.h"
 
 MMDensity::MMDensity(boost::shared_ptr<RTree> rtree,
                      boost::shared_ptr<Route> route,

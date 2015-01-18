@@ -1,5 +1,5 @@
-#ifndef RL_UTILITY_H
-#define RL_UTILITY_H
+#ifndef __rl__utility__hh__
+#define __rl__utility__hh__
 
 #include "CNC/cnc_sparse_matrix.h"
 #include <vector>

@@ -1,12 +1,11 @@
-#ifndef __debug__utility__hh__
-#define __debug__utility__hh__
+#ifndef __debug__hh__
+#define __debug__hh__
 
+#include <boost/timer/timer.hpp>
 #include <iostream>
 #include <string>
-#include <boost/timer/timer.hpp>
 
-
-#define DebugVerbose 1
+#define DebugVerbose 4
 
 class DebugUtility {
 private:

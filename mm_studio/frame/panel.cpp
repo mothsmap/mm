@@ -1,6 +1,6 @@
-#include "image_panel.h"
+#include "panel.h"
 #include "frame.h"
-#include "gui_job.h"
+#include "map_job.h"
 
 #include "map_style.h"
 #include "boost/filesystem.hpp"
@@ -10,12 +10,13 @@
 
 #include <fstream>
 #include <algorithm>
-#include "rtree.h"
-#include "route.h"
-#include "mm_density.h"
-#include "mm_model.h"
-#include "shapefile_graph.h"
+#include "mm_tree.h"
+#include "mm_route.h"
+#include "mm_density_solver.h"
+#include "mm_sparse_solver.h"
+#include "mm_graph.h"
 #include "mapping.h"
+#include "debug.h"
 
 using namespace boost::filesystem;
 
@@ -495,8 +496,10 @@ bool wxImagePanel::LocatePoints(int elements) {
         // 上海数据的误差
         //double radius = 250;
         //std::vector<Value> result = tree_->Query(EDGE, points[i].m_x - elements, points[i].m_y - elements, points[i].m_x + elements, points[i].m_y + elements);
-		if (result.size() == 0)
+        if (result.size() == 0) {
+            DebugUtility::Print(DebugUtility::Error, "Candidate point set is empty!");
 			return false;
+        }
         
         // 点i的候选点
 		std::vector<wxPoint2DDouble> candinate_points;
@@ -506,6 +509,9 @@ bool wxImagePanel::LocatePoints(int elements) {
 			int geometry_id = result[j].second;
 			BoostLineString line = tree_->GetEdge(geometry_id);
             EdgeProperties info = tree_->GetRoadInfo(geometry_id);
+            if (info.id_ != geometry_id) {
+                DebugUtility::Print(DebugUtility::Error, "Edge id insistent!");
+            }
             
             // 线段两个端点
             double x1 = line.at(0).get<0>();
@@ -539,7 +545,7 @@ void wxImagePanel::CalculateGroundTruth() {
     
     // 更新历史经验库
     for (int i = 0; i < ground_truth_.size(); ++i) {
-        //tree_->TravelEdge(ground_truth_[i]);
+        tree_->TravelEdge(ground_truth_[i]);
     }
 }
 

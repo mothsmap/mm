@@ -1,7 +1,9 @@
-#include "mm_model.h"
+#include <boost/lexical_cast.hpp>
+#include "debug.h"
+#include "mm_sparse_solver.h"
 #include "scale_model.h"
-#include <fstream>
 #include <ctime>
+#include <fstream>
 
 #define INITIAL_LENGTH 1
 
@@ -11,22 +13,12 @@ MM::MM() {
 MM::~MM() {
 }
 
-double Distance2(double x1, double y1, double x2, double y2) {
-    double dist_x = x1 - x2;
-    double dist_y = y1 - y2;
-    
-    double dist = dist_x * dist_x + dist_y * dist_y;
-    
-    return std::sqrt(dist);
-}
-
 void MM::Clear() {
     action_to_index_.clear();
     index_to_action_.clear();
     state_to_index_.clear();
     index_to_state_.clear();
     suitable_actions_for_state_.clear();
-   // parsing_result_.clear();
     action_list_.clear();
 }
 
@@ -46,7 +38,7 @@ bool MM::InitModel(boost::shared_ptr<RTree> tree, boost::shared_ptr<Route> route
         sp.from_vertex_id_ = -1;
         sp.from_vertex_location_x_ = -1;
         sp.from_vertex_location_y_ = -1;
-        sp.length_ = 0;
+        sp.length_ = INITIAL_LENGTH;
         sp.nodes_.resize(1);
         sp.to_vertex_gps_id_ = 0;
         sp.to_vertex_candidate_id_ = i;
@@ -82,25 +74,22 @@ bool MM::InitModel(boost::shared_ptr<RTree> tree, boost::shared_ptr<Route> route
 }
 
 int MM::InitActionMap(std::vector<ShortestPath>& shortest_paths) {
-#if PRINT_INFO
-    std::cout << "计算决策到int索引的映射 ...\n";
-#endif
+    DebugUtility::Print(DebugUtility::Normal, "计算决策到int索引的映射 ...");
+    
     int count = 0;
     for (int i = 0; i < shortest_paths.size(); ++i) {
         action_to_index_.insert(std::make_pair(shortest_paths[i], count));
         index_to_action_.insert(std::make_pair(count, shortest_paths[i]));
         ++count;
     }
-#if PRINT_INFO
-    std::cout << "总共有 " << count << " 个决策。\n";
-#endif
+    DebugUtility::Print(DebugUtility::Normal, "总共有 " + boost::lexical_cast<std::string>(count) + " 个决策。\n");
+
     return count;
 }
 
 int MM::InitStateMap(std::vector<std::vector<wxPoint2DDouble> >& candidate_points) {
-#if PRINT_INFO
-    std::cout << "计算状态到int索引的映射 ...\n";
-#endif
+    DebugUtility::Print(DebugUtility::Normal, "计算状态到int索引的映射 ...");
+
     // 终止状态设置为最后一个gps点的ID
     terminal_state_ = candidate_points.size() - 1;
     
@@ -125,16 +114,12 @@ int MM::InitStateMap(std::vector<std::vector<wxPoint2DDouble> >& candidate_point
             ++count;
         }
     }
-#if PRINT_INFO
-    std::cout << "总共有 " << count << " 个状态。\n";
-#endif
+    DebugUtility::Print(DebugUtility::Normal, "总共有 " + boost::lexical_cast<std::string>(count) + " 个状态。\n");
     return count;
  }
 
 bool MM::InitSymbolSuitableActions() {
-#if PRINT_INFO
-    std::cout << "计算某个状态下的决策集 ...\n";
-#endif
+    DebugUtility::Print(DebugUtility::Normal, "计算某个状态下的决策集 ...");
     for (int i = 0; i < index_to_state_.size(); ++i) {
         State state = index_to_state_.at(i);
         std::vector<int> suitable_actions;
@@ -153,12 +138,10 @@ bool MM::InitSymbolSuitableActions() {
         
         suitable_actions_for_state_.insert(std::make_pair(i, suitable_actions));
      
-#if PRINT_INFO
-        std::cout << "状态 " << i << " 对应 " << suitable_actions.size() << " 个决策.\n";
-#endif
+        DebugUtility::Print(DebugUtility::Normal, "状态 " + boost::lexical_cast<std::string>(i) +
+                            " 对应 " + boost::lexical_cast<std::string>(suitable_actions.size()) + " 个决策。\n");
     }
     
-#if PRINT_INFO
     // 确保每个非终止状态都有对应的对策
     for (int i = 0; i < terminal_state_; ++i) {
         bool has_actions = false;
@@ -171,35 +154,29 @@ bool MM::InitSymbolSuitableActions() {
             }
         }
         if (!has_actions) {
-            std::cout << "gps id = " << i << " has no suitable actions!\n";
+            DebugUtility::Print(DebugUtility::Error, "gps id =  " + boost::lexical_cast<std::string>(i) + " has no suitable actions!\n");
             return false;
         }
     }
-#endif
     
     return true;
 }
 
 
 double MM::RunParsingAlgorithm(int episodes, int greedy_episodes, double learning_rate) {
-    //parsing_result_.clear();
-    action_list_.clear();
-    
-#if PRINT_INFO
-    std::cout << "启动强化学习算法...\n";
-#endif
-    
     episodes_ = episodes;
-//    unsigned int rand_seed = static_cast<unsigned int>(std::time(0));
-//    std::srand(rand_seed);
-    
-    learning_ = true;
-    record_ = false;
     learning_rate_ = learning_rate;
     epsilon_ = 0.1;
-
+    learning_ = true;
+    record_ = false;
+    
+    DebugUtility::Print(DebugUtility::Normal, "启动强化学习算法... episodes = " + boost::lexical_cast<std::string>(episodes_) + ", learning rate = " + boost::lexical_cast<std::string>(learning_rate_) + ", epison = " + boost::lexical_cast<std::string>(epsilon_));
+    
     // 总共学习@episodes_次
     for(int i = 0; i < episodes_; ++i) {
+        unsigned int rand_seed = static_cast<unsigned int>(std::time(0));
+        std::srand(rand_seed);
+        
         // 动态调整学习参数
         double seed = (double) i / (double) episodes_;
         epsilon_ = ScaleModel::ExpTrans(seed, 0.001, 0.999);
@@ -212,15 +189,14 @@ double MM::RunParsingAlgorithm(int episodes, int greedy_episodes, double learnin
         // 从初始状态开始学习
         double score = RunTask(current_state_);
         
-#if PRINT_INFO
         // 每一千次学习输出当前学习成果（得分）及相应参数
-        if((i + 1) % 1000 == 0) {
-            std::cout << "\n场景 " << i << ". 得分 = " << score <<
-                      " epsilon: " << epsilon_ << " learning_rate_: " << learning_rate_  << "gamma: " << gamma_ <<
-                      std::endl;
+        if((i + 1) % 100 == 0) {
+            DebugUtility::Print(DebugUtility::Verbose, "场景 " + boost::lexical_cast<std::string>(i) +
+                                ": score = " + boost::lexical_cast<std::string>(score) +
+                                ", epsilon " + boost::lexical_cast<std::string>(epsilon_) +
+                                ", learning rate = " + boost::lexical_cast<std::string>(learning_rate_) +
+                                ", gamma = " + boost::lexical_cast<std::string>(gamma_));
         }
-#endif
-        
     }
 
     // 使用更大的贪婪性去学习
@@ -235,12 +211,11 @@ double MM::RunParsingAlgorithm(int episodes, int greedy_episodes, double learnin
         // Parsing from root state
         score = RunTask(current_state_);
         
-#if PRINT_INFO
-        if(i % 10000 == 0) {
-            std::cout << "\n场景 " << i << " 得分: " << score <<
-                      " epsilon: " << epsilon_ << " gamma: " << gamma_ << std::endl;
-        }
-#endif
+        DebugUtility::Print(DebugUtility::Verbose, "场景 " + boost::lexical_cast<std::string>(i) +
+                            ": score = " + boost::lexical_cast<std::string>(score) +
+                            ", epsilon " + boost::lexical_cast<std::string>(epsilon_) +
+                            ", learning rate = " + boost::lexical_cast<std::string>(learning_rate_) +
+                            ", gamma = " + boost::lexical_cast<std::string>(gamma_));
     }
 
     // 根据学习的结果使用贪婪算法得到最优解
@@ -249,9 +224,9 @@ double MM::RunParsingAlgorithm(int episodes, int greedy_episodes, double learnin
     learning_ = false;
     record_ = true;
     double score = RunTask(current_state_);
-#if PRINT_INFO
-    std::cout << "\n贪婪得分: " << score << std::endl;
-#endif
+    
+    DebugUtility::Print(DebugUtility::Normal, "贪婪得分: " + boost::lexical_cast<std::string>(score));
+    
     return (score);
 }
 
@@ -289,14 +264,13 @@ double MM::RunTask(State& state) {
         
         // 记录该状态
         if (record_) {
-           // parsing_result_.push_back(next_state);
             action_list_.push_back(action);
         }
         
         // 计算得分
         double x1, y1;
         route_->getRouteVertex(action.to_vertex_gps_id_, x1, y1);
-        double dist_score = Distance2(action.to_vertex_location_x_, action.to_vertex_location_y_, x1, y1);
+        double dist_score = GeometryUtility::Distance(action.to_vertex_location_x_, action.to_vertex_location_y_, x1, y1);
         double route_score = action.length_;
         double segment_score = 0;
         for (int i = 0; i < action.path_.size(); ++i) {
@@ -319,6 +293,13 @@ double MM::RunTask(State& state) {
         segment_score = seg_const + seg_k * pow(segment_score, seg_power);
         
         score = dist_score + route_score + segment_score;
+        
+        if (!learning_) {
+            DebugUtility::Print(DebugUtility::Normal, "Score Summer: distance score = " +
+                                boost::lexical_cast<std::string>(dist_score) + ", length score = " +
+                                boost::lexical_cast<std::string>(route_score) + ", history score = " +
+                                boost::lexical_cast<std::string>(segment_score));
+        }
         
         // 该状态是否是终止状态？
         if (next_state.gps_id_ == terminal_state_) {
@@ -353,9 +334,9 @@ bool MM::parsing_result_valid() {
         return false;
     
     for (int i = 1; i < action_list_.size(); ++i) {
-#if PRINT_INFO
-        std::cout << "action " << i << ": length = " << action_list_[i].length_ << ", size = " << action_list_[i].path_.size() << std::endl;
-#endif
+        DebugUtility::Print(DebugUtility::Normal, "action " + boost::lexical_cast<std::string>(i) +
+                            ": length = " + boost::lexical_cast<std::string>(action_list_[i].length_) +
+                            ", size = " + boost::lexical_cast<std::string>(action_list_[i].path_.size()));
         if (//action_list_[i].length_ == 0 ||
             action_list_[i].path_.size() == 0)
             return false;

@@ -1,5 +1,5 @@
-#ifndef _MYFRAME_H_
-#define _MYFRAME_H_
+#ifndef __frame__hh__
+#define __frame__hh__
 
 #include "wx/wx.h"
 

@@ -1,10 +1,12 @@
-#ifndef FACADE_MODEL_H
-#define FACADE_MODEL_H
+#ifndef __mm_sparse__solver__hh
+#define __mm_sparse__solver__hh
 
-#include "rl_algorithm.h"
-#include "shapefile_graph.h"
-#include "route.h"
-#include "rtree.h"
+
+#include "mm_graph.h"
+#include "mm_route.h"
+#include "mm_tree.h"
+#include "rl.h"
+
 #include <map>
 #include <stack>
 

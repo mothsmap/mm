@@ -1,11 +1,12 @@
-#ifndef __shapefile__graph__hh__
-#define __shapefile__graph__hh__
+#ifndef __mm__graph__hh__
+#define __mm__graph__hh__
+
+#include "mm_tree.h"
 
 #include <boost/config.hpp>
 #include <boost/graph/graph_traits.hpp>
 #include <boost/graph/dijkstra_shortest_paths.hpp>
 #include <boost/graph/adjacency_list.hpp>
-#include "rtree.h"
 
 // 使用无向图表示路网（最好是用有向图）
 typedef boost::adjacency_list<boost::listS, boost::vecS, boost::undirectedS, VertexProperties, EdgeProperties> Graph;

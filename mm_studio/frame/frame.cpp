@@ -1,5 +1,5 @@
 #include "frame.h"
-#include "image_panel.h"
+#include "panel.h"
 #include "wx/spinctrl.h"
 #include "wx/numdlg.h"
 #include "wx/busyinfo.h"

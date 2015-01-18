@@ -1,10 +1,10 @@
-#ifndef MAP_CLIENT_H_
-#define MAP_CLIENT_H_
-#include "wx/wx.h"
-#include "mapping.h"
-#include "mm_model.h"
-#include "mapping.h"
+#ifndef __panel__hh__
+#define __panel__hh__
+
 #include <boost/thread.hpp>
+#include "mapping.h"
+#include "mm_sparse_solver.h"
+#include "wx/wx.h"
 
 using namespace map;
 class RTree;

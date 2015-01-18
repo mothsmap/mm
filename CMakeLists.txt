@@ -166,29 +166,29 @@ set(frame_src
   mm_studio/frame/app.cpp
   mm_studio/frame/frame.h
   mm_studio/frame/frame.cpp
-  mm_studio/frame/gui_job.h
-  mm_studio/frame/image_panel.h
-  mm_studio/frame/image_panel.cpp
+  mm_studio/frame/map_job.h
+  mm_studio/frame/panel.h
+  mm_studio/frame/panel.cpp
 )
 
 set(algorithm_src
-mm_studio/algorithm/boost_geometry.h
-mm_studio/algorithm/debug_utility.h
-mm_studio/algorithm/route.h
-mm_studio/algorithm/route.cpp
-mm_studio/algorithm/rtree.h
-mm_studio/algorithm/rtree.cpp
-mm_studio/algorithm/shapefile_graph.h
-mm_studio/algorithm/shapefile_graph.cpp
-mm_studio/algorithm/mm_density.h
-mm_studio/algorithm/mm_density.cpp
-mm_studio/algorithm/mm_model.h
-mm_studio/algorithm/mm_model.cpp
+mm_studio/algorithm/geometry.h
+mm_studio/algorithm/debug.h
+mm_studio/algorithm/mm_route.h
+mm_studio/algorithm/mm_route.cpp
+mm_studio/algorithm/mm_tree.h
+mm_studio/algorithm/mm_tree.cpp
+mm_studio/algorithm/mm_graph.h
+mm_studio/algorithm/mm_graph.cpp
+mm_studio/algorithm/mm_density_solver.h
+mm_studio/algorithm/mm_density_solver.cpp
+mm_studio/algorithm/mm_sparse_solver.h
+mm_studio/algorithm/mm_sparse_solver.cpp
 
 mm_studio/algorithm/rl_utility.h
 mm_studio/algorithm/rl_utility.cpp
-mm_studio/algorithm/rl_algorithm.h
-mm_studio/algorithm/rl_algorithm.cpp
+mm_studio/algorithm/rl.h
+mm_studio/algorithm/rl.cpp
 mm_studio/algorithm/scale_model.h
 mm_studio/algorithm/scale_model.cpp
   )

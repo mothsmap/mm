@@ -1,8 +1,8 @@
-#include "boost_geometry.h"
+#include "geometry.h"
 #include "mm_density.h"
-#include "rtree.h"
-#include "route.h"
-#include "shapefile_graph.h"
+#include "mm_tree.h"
+#include "mm_route.h"
+#include "mm_graph.h"
 
 boost::shared_ptr<RTree> tree = boost::shared_ptr<RTree>(new RTree);
 boost::shared_ptr<ShapefileGraph> graph = boost::shared_ptr<ShapefileGraph>(new ShapefileGraph(tree));

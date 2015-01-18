@@ -1,5 +1,5 @@
-#include "rtree.h"
-#include "debug_utility.h"
+#include "debug.h"
+#include "mm_tree.h"
 #include "ogrsf_frmts.h"
 
 RTree::RTree() {
@@ -211,4 +211,17 @@ void RTree::Reset() {
     
     edge_count_ = 0;
     node_count_ = 0;
+}
+
+void RTree::TravelEdge(int id) {
+    if (edge_info_.find(id) != edge_info_.end()) {
+        EdgeProperties info = edge_info_.at(id);
+        info.travel_counts_++;
+        
+        edge_info_.erase(edge_info_.find(id));
+        edge_info_.insert(std::make_pair(id, info));
+        
+    } else {
+        DebugUtility::Print(DebugUtility::Error, "Try to set edge info for a not exist edge!");
+    }
 }

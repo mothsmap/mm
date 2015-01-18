@@ -1,5 +1,5 @@
-#include "shapefile_graph.h"
-#include "debug_utility.h"
+#include "debug.h"
+#include "mm_graph.h"
 #include "ogrsf_frmts.h"
 
 ShapefileGraph::ShapefileGraph(boost::shared_ptr<RTree> rtree) {
@@ -112,8 +112,10 @@ bool ShapefileGraph::AddCandidatePoint(double cx, double cy, int gps_id, int can
         return false;
     }
     
-    if (edge.id_ != graph_[original_edge_pair.first].id_); {
-        DebugUtility::Print(DebugUtility::Warning, "Road is insistent!");
+    if (edge.id_ != graph_[original_edge_pair.first].id_) {
+        DebugUtility::Print(DebugUtility::Error, "Road is insistent! " + boost::lexical_cast<std::string>(edge.id_) +
+                            " != " + boost::lexical_cast<std::string>(graph_[original_edge_pair.first].id_));
+        
         return false;
     }
     
@@ -162,6 +164,8 @@ bool ShapefileGraph::ComputeShortestPath() {
         if (graph_[*from_vertex].gps_id_ == -1)
             continue;
         
+        DebugUtility::Print(DebugUtility::Verbose, "From vertex gps id = " + boost::lexical_cast<std::string>(graph_[*from_vertex].gps_id_));
+        
         // Create things for Dijkstra
         std::vector<vertex_descriptor> parents(boost::num_vertices(graph_)); // To store parents
         std::vector<double> distances(boost::num_vertices(graph_)); // To store distances
@@ -183,6 +187,8 @@ bool ShapefileGraph::ComputeShortestPath() {
         for (Graph::vertex_iterator to_vertex = vertex_iterator_range.first; to_vertex != vertex_iterator_range.second; ++to_vertex) {
             if (graph_[*to_vertex].gps_id_ != (graph_[*from_vertex].gps_id_ + 1))
                 continue;
+            
+            DebugUtility::Print(DebugUtility::Verbose, "to vertex gps id = " + boost::lexical_cast<std::string>(graph_[*to_vertex].gps_id_));
             
             bool path_valid = true;
             
@@ -230,15 +236,20 @@ bool ShapefileGraph::ComputeShortestPath() {
                 ////////////////
                 vertex_descriptor source = boost::source(edge, graph_);
                 vertex_descriptor target = boost::target(edge, graph_);
-                if (vertex_.find(graph_[source].id_) != vertex_.end() && vertex_.find(graph_[target].id_) != vertex_.end()) {
+  //              if (vertex_.find(graph_[source].id_) != vertex_.end() && vertex_.find(graph_[target].id_) != vertex_.end()) {
                     shortest_path.nodes_.push_back(BoostPoint(graph_[source].location_x_, graph_[source].location_y_));
                     shortest_path.nodes_.push_back(BoostPoint(graph_[target].location_x_, graph_[target].location_y_));
-                } else {
-                    DebugUtility::Print(DebugUtility::Error, "Not find source and target together!");
-                }
+    //            } else {
+     //               DebugUtility::Print(DebugUtility::Error, "Not find source and target together!");
+     //           }
             }
             
             if (path_valid) {
+                DebugUtility::Print(DebugUtility::Verbose, "shortest path from gps " +
+                                    boost::lexical_cast<std::string>(graph_[*from_vertex].gps_id_) +
+                                    " to gps " + boost::lexical_cast<std::string>(graph_[*to_vertex].gps_id_) +
+                                    " is " +  boost::lexical_cast<std::string>(shortest_path.length_));
+                
                 shortest_paths_.push_back(shortest_path);
             }
         }

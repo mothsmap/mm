@@ -1,9 +1,9 @@
 #include "rl_utility.h"
 
+#include <assert.h>
 #include <cstdlib>
 #include <cmath>
 #include <climits>
-#include <assert.h>
 #include <iostream>
 
 double RLUtility::Max(double * array, int n ) {

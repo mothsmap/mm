@@ -1,8 +1,8 @@
-#include "scale_model.h"
-#include <iostream>
+#include <assert.h>
 #include <cstdio>
 #include <cmath>
-#include <assert.h>
+#include <iostream>
+#include "scale_model.h"
 
 double ScaleModel::AB2MN(double target, double A, double B, double M, double N)
 {

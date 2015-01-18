@@ -1,9 +1,10 @@
-#ifndef __mm__density__hh__
-#define __mm__density__hh__
+#ifndef __mm__density__solver__hh__
+#define __mm__density__solver__hh__
+
+#include "geometry.h"
 
 #include <boost/shared_ptr.hpp>
 #include <vector>
-#include "boost_geometry.h"
 
 class RTree;
 class Route;

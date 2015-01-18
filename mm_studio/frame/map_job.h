@@ -1,7 +1,8 @@
-#ifndef GUI_JOB_H_
-#define GUI_JOB_H_
+#ifndef __map__job__hh__
+#define __map__job__hh__
+
 #include "wx/wx.h"
-#include "image_panel.h"
+#include "panel.h"
 #include "mapping.h"
 #include "boost/filesystem.hpp"
 #include "boost/thread.hpp"
