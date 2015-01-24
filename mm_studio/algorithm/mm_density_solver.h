@@ -2,11 +2,10 @@
 #define __mm__density__solver__hh__
 
 #include "geometry.h"
-
+#include "mm_tree.h"
 #include <boost/shared_ptr.hpp>
 #include <vector>
 
-class RTree;
 class Route;
 class ShapefileGraph;
 
@@ -18,7 +17,8 @@ public:
     
     ~MMDensity();
     
-    std::vector<int>& Match();
+    void Match();
+    std::vector<int> Match(GPSTrajectory& trajectory);
 
     // 匹配一个GPS点到一条边
     // point_id: GPS点的id
@@ -49,8 +49,6 @@ public:
     void UpdateStart(int& start, int edge_id, int pre_edge);
     
 private:
-    std::vector<int> match_;
-    
     boost::shared_ptr<RTree> tree_;
     boost::shared_ptr<Route> route_;
     boost::shared_ptr<ShapefileGraph> shapefile_graph_;

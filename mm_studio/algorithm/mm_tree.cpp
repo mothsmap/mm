@@ -2,9 +2,12 @@
 #include "mm_tree.h"
 #include "ogrsf_frmts.h"
 
+#define DIST_THD 10
+
 RTree::RTree() {
     node_count_ = 0;
     edge_count_ = 0;
+    trajectories_count_ = 0;
     
     OGRRegisterAll();
 }
@@ -13,26 +16,42 @@ RTree::~RTree() {
 }
 
 bool RTree::Build(std::string map_dir, double xmin, double ymin, double xmax, double ymax) {
-    return (AddNodes(map_dir, xmin, ymin, xmax, ymax) && AddEdges(map_dir, xmin, ymin, xmax, ymax));
+    return (AddNodes(map_dir, xmin, ymin, xmax, ymax) && AddEdges(map_dir, xmin, ymin, xmax, ymax) && AddGPSLogs(map_dir, xmin, ymin, xmax, ymax) );
 }
 
 std::vector<Value> RTree::Query(QueryType type, double xmin, double ymin, double xmax, double ymax) {
     BoostBox query_box(BoostPoint(xmin, ymin), BoostPoint(xmax, ymax));
     std::vector<Value> results;
-    if (type == EDGE)
-        edge_tree_.query(bgi::intersects(query_box), std::back_inserter(results));
-    else
-        node_tree_.query(bgi::intersects(query_box), std::back_inserter(results));
+    switch (type) {
+        case EDGE:
+            edge_tree_.query(bgi::intersects(query_box), std::back_inserter(results));
+            break;
+        case NODE:
+            node_tree_.query(bgi::intersects(query_box), std::back_inserter(results));
+            break;
+        case TRAJECTORY:
+            trajectory_tree_.query(bgi::intersects(query_box), std::back_inserter(results));
+        default:
+            break;
+    }
     
     return results;
 }
 
 std::vector<Value> RTree::Query(QueryType type, BoostPoint pt, int elements) {
     std::vector<Value> results;
-    if (type == EDGE)
-        edge_tree_.query(bgi::nearest(pt, elements), std::back_inserter(results));
-    else
-        node_tree_.query(bgi::nearest(pt, elements), std::back_inserter(results));
+    switch (type) {
+        case EDGE:
+            edge_tree_.query(bgi::nearest(pt, elements), std::back_inserter(results));
+            break;
+        case NODE:
+            node_tree_.query(bgi::nearest(pt, elements), std::back_inserter(results));
+            break;
+        case TRAJECTORY:
+            trajectory_tree_.query(bgi::nearest(pt, elements), std::back_inserter(results));
+        default:
+            break;
+    }
     
     return results;
 }
@@ -128,6 +147,74 @@ bool RTree::AddEdges(std::string map_dir, double xmin, double ymin, double xmax,
     return true;
 }
 
+bool RTree::AddGPSLogs(std::string map_dir, double xmin, double ymin, double xmax, double ymax) {
+    DebugUtility::Print(DebugUtility::Normal, "Add GPS logs to Rtree...");
+    
+        gps_trajectories_.clear();
+    
+        std::string filename = map_dir + "/mm/logs.shp";
+        OGRDataSource* data_source = OGRSFDriverRegistrar::Open(filename.c_str(), FALSE);
+        if (data_source == NULL) {
+            DebugUtility::Print(DebugUtility::Error, "Open " + filename + " fail!");
+            return false;
+        }
+        
+        OGRLayer* layer = data_source->GetLayer(0);
+        OGRFeature* feature = layer->GetNextFeature();
+        GPSTrajectory trajectory;
+        while (feature != NULL) {
+            // feature geometry
+            OGRGeometry *poGeometry;
+            poGeometry = feature->GetGeometryRef();
+            
+            int status = feature->GetFieldAsInteger("status");
+            if (status == 33280) {
+                OGRPoint *poPoint = (OGRPoint*) poGeometry;
+                GPSPoint gps_point = {
+                    poPoint->getX(), poPoint->getY(),
+                    feature->GetFieldAsInteger("gpstime"),
+                    feature->GetFieldAsInteger("head"),
+                    feature->GetFieldAsInteger("speed")
+                };
+                
+                if (trajectory.size() > 0) {
+                    GPSPoint pre_pt = trajectory[trajectory.size() - 1];
+                    double dist = GeometryUtility::Distance(pre_pt.x_, pre_pt.y_, gps_point.x_, gps_point.y_);
+                    if (dist > DIST_THD) {
+                        trajectory.push_back(gps_point);
+                    }
+                } else {
+                    trajectory.push_back(gps_point);
+                }
+            } else {
+                if (trajectory.size() > 0) {
+                    this->InsertGPSTrajectory(trajectory);
+#if 1
+                    std::cout << "insert a gps trajectory: ";
+                    for (int i = 0; i < trajectory.size(); ++i) {
+                        std::cout << trajectory[i].t_ << "\t";
+                    }
+                    std::cout << std::endl;
+#endif
+                    trajectory.clear();
+                }
+            }
+            
+            OGRFeature::DestroyFeature (feature);
+            feature = layer->GetNextFeature();
+        }
+        
+        return true;
+}
+
+void RTree::InsertMatchedTrajectory(std::vector<int> traj, int id) {
+    matched_trajectories_.insert(std::make_pair(id, traj));
+    
+    for (int i = 0; i < traj.size(); ++i) {
+        this->TravelEdge(traj[i]);
+    }
+}
+
 void RTree::InsertNode(double x, double y, VertexProperties info) {
     node_info_.insert(std::make_pair(node_count_, info));
     
@@ -166,6 +253,7 @@ void RTree::InsertRoad(double x1, double y1, double x2, double y2, EdgePropertie
         return ;
     }
     
+    DebugUtility::Print(DebugUtility::Normal, "insert a road");
     
     edge_info_.insert(std::make_pair(edge_count_, info));
     
@@ -179,6 +267,23 @@ void RTree::InsertRoad(double x1, double y1, double x2, double y2, EdgePropertie
     edge_tree_.insert(std::make_pair(b, edge_count_));
     
     edge_count_++;
+}
+
+void RTree::InsertGPSTrajectory(GPSTrajectory trajectory) {
+    if (trajectory.size() <= 3)
+        return;
+    
+    BoostLineString line;
+    for (int i = 0; i < trajectory.size(); ++i) {
+        line.push_back(BoostPoint(trajectory[i].x_, trajectory[i].y_));
+    }
+    
+    BoostBox b = bg::return_envelope<BoostBox>(line);
+    trajectory_tree_.insert(std::make_pair(b, trajectories_count_));
+    
+    gps_trajectories_.insert(std::make_pair(trajectories_count_, trajectory));
+    
+    trajectories_count_++;
 }
 
 void RTree::PrintLine(int id) {
@@ -207,10 +312,13 @@ void RTree::Reset() {
     nodes_.clear();
     node_info_.clear();
     
+    gps_trajectories_.clear();
+    
     edge_node_map_.clear();
     
     edge_count_ = 0;
     node_count_ = 0;
+    trajectories_count_ = 0;
 }
 
 void RTree::TravelEdge(int id) {

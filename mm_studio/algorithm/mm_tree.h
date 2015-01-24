@@ -3,26 +3,11 @@
 
 #include "geometry.h"
 
-// 路网的结点属性
-struct VertexProperties {
-    int id_;
-    int gps_id_;
-    int candidate_id_;
-    double location_x_, location_y_;
-};
-
-// 路网边属性
-struct EdgeProperties {
-    int id_;
-    double weight_;
-    int oneway_;
-    int travel_counts_;
-};
-
 // 查询类型
 enum QueryType {
     NODE,
-    EDGE
+    EDGE,
+    TRAJECTORY
 };
 
 class RTree {
@@ -38,6 +23,10 @@ public:
     void InsertNode(double x, double y, VertexProperties info);
     // 插入道路
     void InsertRoad(double x1, double y1, double x2, double y2, EdgeProperties info);
+    // 插入轨迹点
+    void InsertGPSTrajectory(GPSTrajectory trajectory);
+    // 插入轨迹点匹配到的道路边
+    void InsertMatchedTrajectory(std::vector<int> traj, int id);
     
     /************** 查询函数 *************************/
     // 根据范围查询
@@ -52,9 +41,13 @@ public:
     /************** 获取信息 *************************/
     inline int edge_size() { return edge_count_; }
     inline int node_size() { return node_count_; }
+    inline int trajectory_size() { return trajectories_count_; }
     
     inline BoostLineString GetEdge(int id) { return edges_.at(id); }
     inline BoostPoint GetNode(int id) { return nodes_.at(id); }
+    inline GPSTrajectory& GetTrajectory(int id) { return gps_trajectories_.at(id); }
+    inline std::vector<int>& GetMatchedTrajectory(int id) { return matched_trajectories_.at(id); }
+    inline int GetMatchedTrajectorySize() { return matched_trajectories_.size(); }
     
     inline EdgeProperties GetRoadInfo(int id) { return edge_info_.at(id); }
     inline VertexProperties GetNodeInfo(int id) { return node_info_.at(id); }
@@ -71,9 +64,10 @@ private:
     // Build函数的辅助函数
     bool AddNodes(std::string map_dir, double xmin, double ymin, double xmax, double ymax);
     bool AddEdges(std::string map_dir, double xmin, double ymin, double xmax, double ymax);
+    bool AddGPSLogs(std::string map_dir, double xmin, double ymin, double xmax, double ymax);
     
 private:
-    Boost_RTree edge_tree_, node_tree_;
+    Boost_RTree edge_tree_, node_tree_, trajectory_tree_;
     
     std::map<int, BoostLineString>  edges_;
     std::map<int, EdgeProperties> edge_info_;
@@ -81,10 +75,14 @@ private:
     std::map<int, BoostPoint> nodes_;
     std::map<int, VertexProperties> node_info_;
     
+    std::map<int, GPSTrajectory> gps_trajectories_;
+    std::map<int, std::vector<int> > matched_trajectories_;
+    
     std::map<int, std::vector<int> > edge_node_map_;
     
     int edge_count_;
     int node_count_;
+    int trajectories_count_;
 };
 
 #endif

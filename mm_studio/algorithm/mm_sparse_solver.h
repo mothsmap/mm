@@ -10,7 +10,7 @@
 #include <map>
 #include <stack>
 
-typedef ShortestPath Action;
+typedef CandidateTrajectory Action;
 struct State {
 //public:
 //    State() {}
@@ -53,7 +53,7 @@ struct State {
 class MM : public RLAlgorithm {
 public:
     MM();
-    bool InitModel(boost::shared_ptr<RTree> tree, boost::shared_ptr<Route> route, std::vector<std::vector<wxPoint2DDouble> >& candidate_points, std::vector<ShortestPath>& shortest_paths);
+    bool InitModel(boost::shared_ptr<RTree> tree, boost::shared_ptr<Route> route);
 
     ~MM();
 
@@ -68,7 +68,7 @@ public:
     
     inline int get_parsing_action_size() { return action_list_.size(); }
     inline std::vector<int>& get_parsing_action(int index) {
-        return action_list_[index].path_; }
+        return action_list_[index].trajectory_; }
     
     inline std::vector<Action>& get_parsing_action() { return action_list_; }
     //inline std::vector<State>& get_parsing_result() { return parsing_result_; }
@@ -83,10 +83,10 @@ protected:
     double RunTask(State& state);
 
     // Initialize the state-index and index-state map.
-    int InitStateMap(std::vector<std::vector<wxPoint2DDouble> >& candidate_points);
+    int InitStateMap(std::vector<CandidatePointSet>& candidate_points);
 
     // Initialize the action-index and index-action map.
-    int InitActionMap(std::vector<ShortestPath>& shortest_paths);
+    int InitActionMap(std::vector<CandidateTrajectory>& shortest_paths);
     
     // Initialize the index-suitable actions map.
     bool InitSymbolSuitableActions();

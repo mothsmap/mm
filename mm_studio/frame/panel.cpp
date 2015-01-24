@@ -86,7 +86,13 @@ bool wxImagePanel::LoadMapDefine(wxString map_folder) {
 
 bool wxImagePanel::BuildRTree(std::string filename) {
 	// build spatial tree
-    const double thd = 1000;
+    const double thd = 10000;
+    // 横、纵坐标最小值 12724864.20，4565076.01 ：横、纵坐标最大值 12765152.95，4601151.37
+//    gps_extent_minx_ = 12724864.20;
+//    gps_extent_miny_ = 4565076.01;
+//    gps_extent_maxx_ = 12765152.95;
+//    gps_extent_maxy_ = 4601151.37;
+    
 	bool status = tree_->Build(filename, gps_extent_minx_ - thd, gps_extent_miny_ - thd, gps_extent_maxx_ + thd, gps_extent_maxy_ + thd);
     
 	return status;
@@ -179,11 +185,11 @@ wxImagePanel::wxImagePanel(wxFrame* parent) : wxPanel (parent) {
     density_route_ = boost::shared_ptr<Route>(new Route);
     shapefile_graph_ = boost::shared_ptr<ShapefileGraph>(new ShapefileGraph(tree_));
     mm_ = boost::shared_ptr<MM>(new MM);
-    mm_density_solver_ = boost::shared_ptr<MMDensity>(new MMDensity(tree_, density_route_, shapefile_graph_));
+    mm_density_solver_ = boost::shared_ptr<MMDensity>(new MMDensity(tree_, route_, shapefile_graph_));
     
-    this->SetOutputDir("/Volumes/My Passport/back/mm/map/cache");
+    this->SetOutputDir("/Volumes/My Passport/back/mm/sjz/cache");
     
-    this->LoadMapDefine("/Volumes/My Passport/back/mm/map");
+    this->LoadMapDefine("/Volumes/My Passport/back/mm/sjz");
 }
 
 wxImagePanel::~wxImagePanel() {
@@ -245,24 +251,12 @@ void wxImagePanel::render (wxDC&  dc) {
         MuiltyThreadCache (dc);
     }
 
-    // taxi route
-    if (!density_route_->isEmpty()) {
-        const std::vector<wxPoint2DDouble>& points = density_route_->getRoute();
-        for (int i = 0; i < points.size(); ++i) {
-            // calculate pos
-            wxPoint pos = CalculatePos(points[i].m_x, points[i].m_y);
-            
-            dc.SetPen(*wxRED_PEN);
-            dc.SetBrush(*wxYELLOW);
-            dc.DrawCircle(pos, 1);
-        }
-    }
     
     if (!route_->isEmpty()) {
-        const std::vector<wxPoint2DDouble>& points = route_->getRoute();
+        GPSTrajectory& points = route_->getRoute();
         for (int i = 0; i < points.size(); ++i) {
             // calculate pos
-            wxPoint pos = CalculatePos(points[i].m_x, points[i].m_y);
+            wxPoint pos = CalculatePos(points[i].x_, points[i].y_);
             
             dc.SetPen(*wxGREEN_PEN);
             dc.SetBrush(*wxRED_BRUSH);
@@ -298,45 +292,24 @@ void wxImagePanel::render (wxDC&  dc) {
         pen.SetWidth(3);
         dc.SetPen(pen);
         
-#if PRINT_INFO
-        std::ofstream ofs(map_dir_ + "/result.txt");
-#endif
         std::vector<Action>& parsing_actions = mm_->get_parsing_action();
         
-#if PRINT_INFO
-        std::cout << "Actions: ";
-#endif
         for (int i = 1; i < parsing_actions.size(); ++i) {
-#if PRINT_INFO
-            std::cout << "from gps id: " << parsing_actions[i].from_vertex_gps_id_ << " to gps id: " << parsing_actions[i].to_vertex_gps_id_ << std::endl;
-            
-            ofs << "(" << parsing_actions[i].from_vertex_gps_id_ << ", " << parsing_actions[i].from_vertex_candidate_id_ << ") -> (" << parsing_actions[i].to_vertex_gps_id_ << ", " << parsing_actions[i].to_vertex_candidate_id_ << ")" << std::endl;
-#endif
-            std::vector<BoostPoint>& nodes = parsing_actions[i].nodes_;
-            std::vector<wxPoint> points_in_path_of_screen;
-            
-            if (nodes.size() == 0) {
-                std::cout << "Not good nodes!\n";
-                continue;
-            }
-            
-            ofs << "road id";
-            for (int j = 0; j < nodes.size(); ++j) {
-                ofs << parsing_actions[i].path_[j] << "\t";
+            std::vector<int>& edges = parsing_actions[i].trajectory_;
+            for (int j = 0; j < edges.size(); ++j) {
+                BoostLineString line = tree_->GetEdge(edges[j]);
                 
-                wxPoint pos = CalculatePos(nodes[j].get<0>(), nodes[j].get<1>());
-                points_in_path_of_screen.push_back(pos);
-            }
-            
-            
-            for (int j = 0; j < points_in_path_of_screen.size() - 1; j += 2) {
-                dc.DrawLine(points_in_path_of_screen[j], points_in_path_of_screen[j + 1]);
+                double x1 = line.at(0).get<0>();
+                double y1 = line.at(0).get<1>();
+                double x2 = line.at(1).get<0>();
+                double y2 = line.at(1).get<1>();
+                
+                wxPoint pos1 = CalculatePos(x1, y1);
+                wxPoint pos2 = CalculatePos(x2, y2);
+                dc.DrawLine(pos1, pos2);
             }
         }
         
-#if PRINT_INFO
-        ofs.close();
-#endif
     } else {
         // candinate points
         for (int i = 0; i < candinate_points_.size(); ++i) {
@@ -454,33 +427,33 @@ bool wxImagePanel::LoadRoute(std::string filename) {
         return false;
     }
     
-    std::vector<wxPoint2DDouble> points = route_->getRoute();
+    GPSTrajectory points = route_->getRoute();
     for (int i = 0; i < points.size(); ++i) {
-        gps_extent_minx_ = gps_extent_minx_ < points[i].m_x ? gps_extent_minx_ : points[i].m_x;
-        gps_extent_miny_ = gps_extent_miny_ < points[i].m_y ? gps_extent_miny_ : points[i].m_y;
-        gps_extent_maxx_ = gps_extent_maxx_ > points[i].m_x ? gps_extent_maxx_ : points[i].m_x;
-        gps_extent_maxy_ = gps_extent_maxy_ > points[i].m_y ? gps_extent_maxy_ : points[i].m_y;
+        gps_extent_minx_ = gps_extent_minx_ < points[i].x_ ? gps_extent_minx_ : points[i].x_;
+        gps_extent_miny_ = gps_extent_miny_ < points[i].y_ ? gps_extent_miny_ : points[i].y_;
+        gps_extent_maxx_ = gps_extent_maxx_ > points[i].x_ ? gps_extent_maxx_ : points[i].x_;
+        gps_extent_maxy_ = gps_extent_maxy_ > points[i].y_ ? gps_extent_maxy_ : points[i].y_;
     }
     
     return true;
 }
 
 bool wxImagePanel::LoadDensityRoute(std::string filename) {
-    density_route_->Reset();
-    if (!density_route_->Load(filename)) {
-        return false;
-    }
-    
-    // resample
-    density_route_->Resample(50);
-    
-    std::vector<wxPoint2DDouble> points = density_route_->getRoute();
-    for (int i = 0; i < points.size(); ++i) {
-        gps_extent_minx_ = gps_extent_minx_ < points[i].m_x ? gps_extent_minx_ : points[i].m_x;
-        gps_extent_miny_ = gps_extent_miny_ < points[i].m_y ? gps_extent_miny_ : points[i].m_y;
-        gps_extent_maxx_ = gps_extent_maxx_ > points[i].m_x ? gps_extent_maxx_ : points[i].m_x;
-        gps_extent_maxy_ = gps_extent_maxy_ > points[i].m_y ? gps_extent_maxy_ : points[i].m_y;
-    }
+//    density_route_->Reset();
+//    if (!density_route_->Load(filename)) {
+//        return false;
+//    }
+//    
+//    // resample
+//    density_route_->Resample(50);
+//    
+//    std::vector<wxPoint2DDouble> points = density_route_->getRoute();
+//    for (int i = 0; i < points.size(); ++i) {
+//        gps_extent_minx_ = gps_extent_minx_ < points[i].m_x ? gps_extent_minx_ : points[i].m_x;
+//        gps_extent_miny_ = gps_extent_miny_ < points[i].m_y ? gps_extent_miny_ : points[i].m_y;
+//        gps_extent_maxx_ = gps_extent_maxx_ > points[i].m_x ? gps_extent_maxx_ : points[i].m_x;
+//        gps_extent_maxy_ = gps_extent_maxy_ > points[i].m_y ? gps_extent_maxy_ : points[i].m_y;
+//    }
     
     return true;
 }
@@ -488,11 +461,11 @@ bool wxImagePanel::LoadDensityRoute(std::string filename) {
 bool wxImagePanel::LocatePoints(int elements) {
 	neighbers_ = elements;
 	nearest_lines_.clear();
-    candinate_points_.clear();
+//    candinate_points_.clear();
 
-	const std::vector<wxPoint2DDouble>& points = route_->getRoute();
+	const GPSTrajectory& points = route_->getRoute();
 	for (int i = 0; i < points.size(); ++i) {
-        std::vector<Value> result = tree_->Query(EDGE, BoostPoint(points[i].m_x, points[i].m_y), elements);
+        std::vector<Value> result = tree_->Query(EDGE, BoostPoint(points[i].x_, points[i].y_), elements);
         // 上海数据的误差
         //double radius = 250;
         //std::vector<Value> result = tree_->Query(EDGE, points[i].m_x - elements, points[i].m_y - elements, points[i].m_x + elements, points[i].m_y + elements);
@@ -519,21 +492,30 @@ bool wxImagePanel::LocatePoints(int elements) {
             double x2 = line.at(1).get<0>();
             double y2 = line.at(1).get<1>();
             double xx, yy;
-            GeometryUtility::GetProjectPoint(x1, y1, x2, y2, points[i].m_x, points[i].m_y, xx, yy);
+            GeometryUtility::GetProjectPoint(x1, y1, x2, y2, points[i].x_, points[i].y_, xx, yy);
             
-            candinate_points.push_back(wxPoint2DDouble(xx, yy));
+//            candinate_points.push_back(wxPoint2DDouble(xx, yy));
+//            
+//            colors.push_back(rand() % 255);
+//            colors.push_back(rand() % 255);
+//            colors.push_back(rand() % 255);
+//            candinate_points_ids.push_back(geometry_id);
             
-            colors.push_back(rand() % 255);
-            colors.push_back(rand() % 255);
-            colors.push_back(rand() % 255);
-            candinate_points_ids.push_back(geometry_id);
+            //shapefile_graph_->AddCandidatePoint(xx, yy, i, j, info);
             
-            shapefile_graph_->AddCandidatePoint(xx, yy, i, j, info);
+            CandidatePoint cp = {
+                i, // int gps_point_id;
+                geometry_id, // int edge_id_;
+                xx, yy, // double proj_x_, proj_y_;
+                GeometryUtility::Distance(xx, yy, points[i].x_, points[i].y_) // double distance_;
+            };
+            
+            route_->InsertCandidatePoint(cp);
 		}
-        
-        candinate_points_.push_back(candinate_points);
-        candinate_points_colors_.push_back(colors);
-        candinate_points_ids_.push_back(candinate_points_ids);
+//        
+//        candinate_points_.push_back(candinate_points);
+//        candinate_points_colors_.push_back(colors);
+//        candinate_points_ids_.push_back(candinate_points_ids);
 	}
     
 	return true;
@@ -541,23 +523,21 @@ bool wxImagePanel::LocatePoints(int elements) {
 
 void wxImagePanel::CalculateGroundTruth() {
     ground_truth_.clear();
-    ground_truth_ = mm_density_solver_->Match();
+    mm_density_solver_->Match();
     
-    // 更新历史经验库
-    for (int i = 0; i < ground_truth_.size(); ++i) {
-        tree_->TravelEdge(ground_truth_[i]);
-    }
+    ground_truth_ = tree_->GetMatchedTrajectory(0);
 }
 
 bool wxImagePanel::ShortestPath(std::string filename) {
-    bool result = shapefile_graph_->ComputeShortestPath();
-    
-    if (!result) {
-        return false;
-    } else {
-       // shapefile_graph_->NormalizeShortestPathLengths();
-        return true;
-    }
+//    bool result = shapefile_graph_->ComputeShortestPath();
+//    
+//    if (!result) {
+//        return false;
+//    } else {
+//       // shapefile_graph_->NormalizeShortestPathLengths();
+//        return true;
+//    }
+    route_->ComputeCandidateTrajectorySet(tree_);
 }
 
 void wxImagePanel::SaveGraph(std::string filename) {
@@ -569,7 +549,7 @@ void wxImagePanel::LoadGraph(std::string filename) {
 void wxImagePanel::OnEraseBackground (wxEraseEvent& event) {}
 
 bool wxImagePanel::RL() {
-    if (!mm_->InitModel(tree_, route_, candinate_points_, shapefile_graph_->GetShortestPaths()))
+    if (!mm_->InitModel(tree_, route_))
         return false;
     
     double score = 0;

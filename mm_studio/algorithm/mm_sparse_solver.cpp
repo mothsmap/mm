@@ -22,7 +22,7 @@ void MM::Clear() {
     action_list_.clear();
 }
 
-bool MM::InitModel(boost::shared_ptr<RTree> tree, boost::shared_ptr<Route> route, std::vector<std::vector<wxPoint2DDouble> >& candidate_points, std::vector<ShortestPath>& shortest_paths) {
+bool MM::InitModel(boost::shared_ptr<RTree> tree, boost::shared_ptr<Route> route) {
     // clear previous state
     Clear();
     
@@ -30,22 +30,21 @@ bool MM::InitModel(boost::shared_ptr<RTree> tree, boost::shared_ptr<Route> route
     route_ = route;
     
     // 添加虚拟的初始点
-    initial_state_size_ = candidate_points[0].size();
+    std::vector<CandidatePointSet>&  candidate_set = route_->getCandidateSet();
+    std::vector<CandidateTrajectory>& candidate_trajectory = route_->getCandidateTrajectories();
+    
+    initial_state_size_ = candidate_set[0].size();
+    std::vector<int> initial_traj;
+    initial_traj.push_back(-1);
+    
     for (int i = 0; i < initial_state_size_; ++i) {
-        ShortestPath sp;
-        sp.from_vertex_gps_id_ = -1;
-        sp.from_vertex_candidate_id_ = -1;
-        sp.from_vertex_id_ = -1;
-        sp.from_vertex_location_x_ = -1;
-        sp.from_vertex_location_y_ = -1;
-        sp.length_ = INITIAL_LENGTH;
-        sp.nodes_.resize(1);
-        sp.to_vertex_gps_id_ = 0;
-        sp.to_vertex_candidate_id_ = i;
-        sp.to_vertex_location_x_ = candidate_points[0][i].m_x;
-        sp.to_vertex_location_y_ = candidate_points[0][i].m_y;
-        sp.path_.resize(1);
-        shortest_paths.push_back(sp);
+        CandidateTrajectory ct = {
+            -1, 0,
+            -1, i,
+            initial_traj
+        };
+
+        candidate_trajectory.push_back(ct);
     }
     
     //初始化起始点
@@ -53,10 +52,10 @@ bool MM::InitModel(boost::shared_ptr<RTree> tree, boost::shared_ptr<Route> route
     current_state_.candidate_id_ = -1;
 
     // 状态到int索引的映射
-    states_number_  = InitStateMap(candidate_points);
+    states_number_  = InitStateMap(candidate_set);
 
     // 决策到int索引的映射
-    actions_number_ = InitActionMap(shortest_paths);
+    actions_number_ = InitActionMap(candidate_trajectory);
     
     // 计算某个状态下的决策集
     bool result = InitSymbolSuitableActions();
@@ -73,7 +72,7 @@ bool MM::InitModel(boost::shared_ptr<RTree> tree, boost::shared_ptr<Route> route
     return result;
 }
 
-int MM::InitActionMap(std::vector<ShortestPath>& shortest_paths) {
+int MM::InitActionMap(std::vector<CandidateTrajectory>& shortest_paths) {
     DebugUtility::Print(DebugUtility::Normal, "计算决策到int索引的映射 ...");
     
     int count = 0;
@@ -87,7 +86,7 @@ int MM::InitActionMap(std::vector<ShortestPath>& shortest_paths) {
     return count;
 }
 
-int MM::InitStateMap(std::vector<std::vector<wxPoint2DDouble> >& candidate_points) {
+int MM::InitStateMap(std::vector<CandidatePointSet>& candidate_points) {
     DebugUtility::Print(DebugUtility::Normal, "计算状态到int索引的映射 ...");
 
     // 终止状态设置为最后一个gps点的ID
@@ -103,7 +102,7 @@ int MM::InitStateMap(std::vector<std::vector<wxPoint2DDouble> >& candidate_point
     // 其它候选点
     int count = 1;
     for (int i = 0; i < candidate_points.size(); ++i) {
-        std::vector<wxPoint2DDouble>& candidates = candidate_points[i];
+        CandidatePointSet candidates = candidate_points[i];
         for (int j = 0; j < candidates.size(); ++j) {
             State state;
             state.gps_id_ = i;
@@ -127,10 +126,10 @@ bool MM::InitSymbolSuitableActions() {
         for (int j = 0; j < index_to_action_.size(); ++j) {
             Action action = index_to_action_.at(j);
             
-            if (state.gps_id_ == action.from_vertex_gps_id_ &&
-                state.candidate_id_ == action.from_vertex_candidate_id_ &&
+            if (state.gps_id_ == action.from_gps_point_ &&
+                state.candidate_id_ == action.from_candidate_point_ &&
                 // action.length_ != 0 &&
-                action.path_.size() > 0
+                action.trajectory_.size() > 0
                 ) {
                 suitable_actions.push_back(j);
             }
@@ -258,8 +257,8 @@ double MM::RunTask(State& state) {
         
         // 该决策导致状态转移
         State next_state;
-        next_state.gps_id_ = action.to_vertex_gps_id_;
-        next_state.candidate_id_ = action.to_vertex_candidate_id_;
+        next_state.gps_id_ = action.to_gps_point_;
+        next_state.candidate_id_ = action.to_candiate_point_;
         next_state_index = state_to_index_.at(next_state);
         
         // 记录该状态
@@ -268,19 +267,15 @@ double MM::RunTask(State& state) {
         }
         
         // 计算得分
-        double x1, y1;
-        route_->getRouteVertex(action.to_vertex_gps_id_, x1, y1);
-        double dist_score = GeometryUtility::Distance(action.to_vertex_location_x_, action.to_vertex_location_y_, x1, y1);
+#if 0
+        
         double route_score = action.length_;
         double segment_score = 0;
         for (int i = 0; i < action.path_.size(); ++i) {
             int travel_count = tree_->GetRoadInfo(action.path_[i]).travel_counts_;
             segment_score += travel_count;
         }
-        double dist_power = 2.0;
-        double dist_k = -1.0;
-        double dist_const = 1000;
-        dist_score = dist_const + dist_k * pow(dist_score, dist_power);
+        
         
         double route_power = 1.0;
         double route_k = -1.0;
@@ -299,6 +294,21 @@ double MM::RunTask(State& state) {
                                 boost::lexical_cast<std::string>(dist_score) + ", length score = " +
                                 boost::lexical_cast<std::string>(route_score) + ", history score = " +
                                 boost::lexical_cast<std::string>(segment_score));
+        }
+#endif
+        // 候选点评分
+        double x1, y1;
+        GPSPoint point = route_->getRouteVertex(action.to_gps_point_);
+        double dist_score = GeometryUtility::Distance(point.x_, point.y_, x1, y1);
+        double dist_power = 2.0;
+        double dist_k = -1.0;
+        double dist_const = 1000;
+        dist_score = dist_const + dist_k * pow(dist_score, dist_power);
+        
+        // 候选路径评分
+        for (int i = 0; i < action.trajectory_.size(); ++i) {
+            int travel_count = tree_->GetRoadInfo(action.trajectory_[i]).travel_counts_;
+            score += travel_count;
         }
         
         // 该状态是否是终止状态？
@@ -335,10 +345,9 @@ bool MM::parsing_result_valid() {
     
     for (int i = 1; i < action_list_.size(); ++i) {
         DebugUtility::Print(DebugUtility::Normal, "action " + boost::lexical_cast<std::string>(i) +
-                            ": length = " + boost::lexical_cast<std::string>(action_list_[i].length_) +
-                            ", size = " + boost::lexical_cast<std::string>(action_list_[i].path_.size()));
+                            ", size = " + boost::lexical_cast<std::string>(action_list_[i].trajectory_.size()));
         if (//action_list_[i].length_ == 0 ||
-            action_list_[i].path_.size() == 0)
+            action_list_[i].trajectory_.size() == 0)
             return false;
     }
     

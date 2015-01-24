@@ -17,22 +17,35 @@ MMDensity::~MMDensity() {
     
 }
 
-std::vector<int>& MMDensity::Match() {
-    const int advance_size = 5;
+void MMDensity::Match() {
+    int ntrajectories = tree_->trajectory_size();
+    for (int i = 0; i < ntrajectories; ++i) {
+        GPSTrajectory& traj = tree_->GetTrajectory(i);
+        tree_->InsertMatchedTrajectory(Match(traj), i);
+    }
+}
+
+std::vector<int> MMDensity::Match(GPSTrajectory& trajectory) {
+    std::vector<int> matched;
+    
+    const int advance_size = 3;
     
     // GPS 点序列
-    const std::vector<wxPoint2DDouble>& points = route_->getRoute();
-    DebugUtility::Print(DebugUtility::Normal, "match " + boost::lexical_cast<std::string>(points.size()) + " GPS points");
+    // GPSTrajectory& points = route_->getRoute();
+    DebugUtility::Print(DebugUtility::Normal, "match " + boost::lexical_cast<std::string>(trajectory.size()) + " GPS points");
+    if (trajectory.size() == 0)
+        return matched;
     
     // 当前gps点
     int current_gps = 0;
     
     // 初始化：当前GPS点邻近的边集， 100米内的邻近边
     int step_size = 100;
-    std::vector<Value> edge_value_set = tree_->Query(EDGE, points[0].m_x - step_size, points[0].m_y - step_size, points[0].m_x + step_size, points[0].m_y + step_size);
+    std::vector<Value> edge_value_set = tree_->Query(EDGE, trajectory[0].x_ - step_size, trajectory[0].y_ - step_size, trajectory[0].x_ + step_size, trajectory[0].y_ + step_size);
     if (edge_value_set.size() == 0) {
         DebugUtility::Print(DebugUtility::Error, "Initialize edge set fail!");
-        return match_;
+        std::cout << "(x, y, t) = (" << trajectory[0].x_ << ", " << trajectory[0].y_ << ", " << trajectory[0].t_ << ")\n";
+        return matched;
     }
     
     DebugUtility::Print(DebugUtility::Normal, "Initialize edge set size = " + boost::lexical_cast<std::string>(edge_value_set.size()));
@@ -52,14 +65,14 @@ std::vector<int>& MMDensity::Match() {
     int repeat_count = 0;
     int pre_gps;
     
-    while (current_gps < points.size()) {
+    while (current_gps < trajectory.size()) {
         if (pre_gps == current_gps) {
             repeat_count++;
         } else {
             repeat_count = 0;
         }
         
-        if (repeat_count > 10) {
+        if (repeat_count > 2) {
             std::cout << "Solve a dead loop!\n";
             current_gps++;
             repeat_count = 0;
@@ -71,6 +84,11 @@ std::vector<int>& MMDensity::Match() {
         DebugUtility::Print(DebugUtility::Normal, "GPS #" + boost::lexical_cast<std::string>(current_gps) + " has " + boost::lexical_cast<std::string>(edge_set.size()) + " candidate edges\n" +
                             "Pre edge " + boost::lexical_cast<std::string>(pre_edge) + "\n" +
                             "start vertex " + boost::lexical_cast<std::string>(start_outer));
+        
+        if (edge_set.size() == 0) {
+            DebugUtility::Print(DebugUtility::Error, "Candidate edge set empty!");
+            return matched;
+        }
         
         // 当前GPS点匹配的最佳得分
         double best_score = -10000000000.0;
@@ -152,11 +170,14 @@ std::vector<int>& MMDensity::Match() {
         DebugUtility::Print(DebugUtility::Normal, "Update GPS point and Candidate edge set... current gps = " + boost::lexical_cast<std::string>(current_gps) + ", edge set size = " + boost::lexical_cast<std::string>(edge_set.size()) + ", start vertex: " + boost::lexical_cast<std::string>(start_outer) + ", advance outer: " +
                             boost::lexical_cast<std::string>(advance_outer));
        
-        match_.push_back(best_edge_id);
+        if (matched.size() == 0 || matched[matched.size() - 1] != best_edge_id) {
+            matched.push_back(best_edge_id);
+        }
+        
         pre_edge = best_edge_id;
     }
     
-    return match_;
+    return matched;
 }
 
 void MMDensity::MatchPoint2Edge(int point_id, int edge, int pre_edge, double& score, bool& advance, int& start) {
@@ -175,12 +196,15 @@ void MMDensity::MatchPoint2Edge(int point_id, int edge, int pre_edge, double& sc
     
     // GPS 点
     double x, y, pre_x, pre_y;
-    route_->getRouteVertex(point_id, x, y);
+    GPSPoint point = route_->getRouteVertex(point_id);
+    GPSPoint pre_point;
     if (point_id != 0) {
-        route_->getRouteVertex(point_id - 1, pre_x, pre_y);
+        pre_point = route_->getRouteVertex(point_id - 1);
     } else {
-        route_->getRouteVertex(1, pre_x, pre_y);
+        pre_point = route_->getRouteVertex(1);
     }
+    x = point.x_; y = point.y_;
+    pre_x = pre_point.x_; pre_y = pre_point.y_;
     
     DebugUtility::Print(DebugUtility::Verbose, "\t\t\tGet GPS point detail (id, x, y) = (" +
                         boost::lexical_cast<std::string>(point_id) + ", " +

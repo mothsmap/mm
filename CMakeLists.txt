@@ -199,13 +199,17 @@ add_executable(mm_studio
   ${frame_src}
 )
 
-add_executable(mm_test
-  mm_test/test.cpp
+add_executable(mm_test_density_solver
+  mm_test/test_density_solver.cpp
+)
+add_executable(mm_test_sparse_solver
+mm_test/test_sparse_solver.cpp
 )
 
 target_link_libraries(mm ${COMMON_LIBS})
 target_link_libraries(mm_studio mm ${COMMOM_LIBS})
-target_link_libraries(mm_test mm ${COMMOM_LIBS})
+target_link_libraries(mm_test_density_solver mm ${COMMOM_LIBS})
+target_link_libraries(mm_test_sparse_solver mm ${COMMOM_LIBS})
 
 source_group(frame FILES ${frame_src})
 source_group(algorithm FILES ${algorithm_src})

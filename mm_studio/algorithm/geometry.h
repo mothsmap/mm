@@ -12,6 +12,7 @@
 #include <vector>
 
 #define PRINT_INFO 1
+
 #define VERY_SMALL_NUMBER 0.001
 
 namespace bg = boost::geometry;
@@ -39,6 +40,64 @@ struct envelope_visitor : public boost::static_visitor<BoostBox> {
     BoostBox operator()(BoostLineString const& g) const { return bg::return_envelope<BoostBox>(g); }
     BoostBox operator()(BoostPolygon const& g) const { return bg::return_envelope<BoostBox>(g); }
 };
+
+
+// 路网的结点属性
+struct VertexProperties {
+    int id_;
+    int gps_id_;
+    int candidate_id_;
+    double location_x_, location_y_;
+};
+
+// 路网边属性
+struct EdgeProperties {
+    int id_;
+    double weight_;
+    int oneway_;
+    int travel_counts_;
+};
+
+struct GPSPoint {
+    double x_;
+    double y_;
+    int t_;
+    int head_;
+    int speed_;
+};
+
+struct CandidatePoint {
+    int gps_point_id;
+    int edge_id_;
+    double proj_x_, proj_y_;
+    double distance_;
+};
+
+struct CandidateTrajectory {
+    int from_gps_point_, to_gps_point_;
+    int from_candidate_point_, to_candiate_point_;
+    std::vector<int> trajectory_;
+    
+    bool operator== (const CandidateTrajectory& path) const {
+        return (this->from_gps_point_ == this->to_gps_point_);
+    }
+    
+    bool operator!= (const CandidateTrajectory& path) const {
+        return (this->from_gps_point_ != this->to_gps_point_);
+    }
+    
+    bool operator> (const CandidateTrajectory& path) const{
+        return (this->from_gps_point_ < this->to_gps_point_);
+    }
+    
+    bool operator< (const CandidateTrajectory& path) const {
+        return (this->from_gps_point_ > this->to_gps_point_);
+    }
+
+};
+
+typedef std::vector<GPSPoint> GPSTrajectory;
+typedef std::vector<CandidatePoint> CandidatePointSet;
 
 class GeometryUtility {
 public:
