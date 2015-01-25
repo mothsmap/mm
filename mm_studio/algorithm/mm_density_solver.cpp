@@ -5,11 +5,8 @@
 #include "mm_route.h"
 #include "mm_tree.h"
 
-MMDensity::MMDensity(boost::shared_ptr<RTree> rtree,
-                     boost::shared_ptr<Route> route,
-                     boost::shared_ptr<ShapefileGraph> shapefile_graph) {
+MMDensity::MMDensity(boost::shared_ptr<RTree> rtree, boost::shared_ptr<ShapefileGraph> shapefile_graph) {
     tree_ = rtree;
-    route_ = route;
     shapefile_graph_ = shapefile_graph;
 }
 
@@ -20,12 +17,14 @@ MMDensity::~MMDensity() {
 void MMDensity::Match() {
     int ntrajectories = tree_->trajectory_size();
     for (int i = 0; i < ntrajectories; ++i) {
-        GPSTrajectory& traj = tree_->GetTrajectory(i);
-        tree_->InsertMatchedTrajectory(Match(traj), i);
+        tree_->InsertMatchedTrajectory(Match(i), i);
     }
 }
 
-std::vector<int> MMDensity::Match(GPSTrajectory& trajectory) {
+std::vector<int> MMDensity::Match(int trajectory_id) {
+    match_id_ = trajectory_id;
+    GPSTrajectory& trajectory = tree_->GetTrajectory(trajectory_id);
+    
     std::vector<int> matched;
     
     const int advance_size = 3;
@@ -130,7 +129,7 @@ std::vector<int> MMDensity::Match(GPSTrajectory& trajectory) {
                     break;
                 }
                 
-                if (current_gps_inside >= route_->getRoute().size()) {
+                if (current_gps_inside >= trajectory.size()) {
                     DebugUtility::Print(DebugUtility::Warning, "Reach the end of GPS point");
                     score += 10.0;
                     break;
@@ -196,12 +195,12 @@ void MMDensity::MatchPoint2Edge(int point_id, int edge, int pre_edge, double& sc
     
     // GPS 点
     double x, y, pre_x, pre_y;
-    GPSPoint point = route_->getRouteVertex(point_id);
+    GPSPoint point = tree_->GetTrajectory(match_id_)[point_id];
     GPSPoint pre_point;
     if (point_id != 0) {
-        pre_point = route_->getRouteVertex(point_id - 1);
+        pre_point = tree_->GetTrajectory(match_id_)[point_id - 1];
     } else {
-        pre_point = route_->getRouteVertex(1);
+        pre_point = tree_->GetTrajectory(match_id_)[1];
     }
     x = point.x_; y = point.y_;
     pre_x = pre_point.x_; pre_y = pre_point.y_;

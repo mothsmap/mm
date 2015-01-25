@@ -11,14 +11,12 @@ class ShapefileGraph;
 
 class MMDensity {
 public:
-    MMDensity(boost::shared_ptr<RTree> rtree,
-              boost::shared_ptr<Route> route,
-              boost::shared_ptr<ShapefileGraph> shapefile_graph);
+    MMDensity(boost::shared_ptr<RTree> rtree, boost::shared_ptr<ShapefileGraph> shapefile_graph);
     
     ~MMDensity();
     
     void Match();
-    std::vector<int> Match(GPSTrajectory& trajectory);
+    std::vector<int> Match(int trajectory_id);
 
     // 匹配一个GPS点到一条边
     // point_id: GPS点的id
@@ -50,8 +48,8 @@ public:
     
 private:
     boost::shared_ptr<RTree> tree_;
-    boost::shared_ptr<Route> route_;
     boost::shared_ptr<ShapefileGraph> shapefile_graph_;
+    int match_id_;
 };
 
 #endif

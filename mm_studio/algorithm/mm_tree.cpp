@@ -1,5 +1,6 @@
 #include "debug.h"
 #include "mm_tree.h"
+#include <fstream>
 #include "ogrsf_frmts.h"
 
 #define DIST_THD 10
@@ -15,8 +16,8 @@ RTree::RTree() {
 RTree::~RTree() {
 }
 
-bool RTree::Build(std::string map_dir, double xmin, double ymin, double xmax, double ymax) {
-    return (AddNodes(map_dir, xmin, ymin, xmax, ymax) && AddEdges(map_dir, xmin, ymin, xmax, ymax) && AddGPSLogs(map_dir, xmin, ymin, xmax, ymax) );
+bool RTree::Build(std::string node_file, std::string edge_file, std::string history_file, double xmin, double ymin, double xmax, double ymax) {
+    return (AddNodes(node_file, xmin, ymin, xmax, ymax) && AddEdges(edge_file, xmin, ymin, xmax, ymax) && AddGPSLogs(history_file, xmin, ymin, xmax, ymax) );
 }
 
 std::vector<Value> RTree::Query(QueryType type, double xmin, double ymin, double xmax, double ymax) {
@@ -61,10 +62,9 @@ bool RTree::AddNodes(std::string map_dir, double xmin, double ymin, double xmax,
     nodes_.clear();
     node_tree_.clear();
     
-    std::string file = map_dir + "/mm/nodes.shp";
-    OGRDataSource* data_source = OGRSFDriverRegistrar::Open(file.c_str(), FALSE);
+    OGRDataSource* data_source = OGRSFDriverRegistrar::Open(map_dir.c_str(), FALSE);
     if (data_source == NULL) {
-        DebugUtility::Print(DebugUtility::Error, "Open " + file + " fail!");
+        DebugUtility::Print(DebugUtility::Error, "Open " + map_dir + " fail!");
         return false;
     }
     
@@ -103,11 +103,10 @@ bool RTree::AddEdges(std::string map_dir, double xmin, double ymin, double xmax,
     DebugUtility::Print(DebugUtility::Normal, "Add edges to Rtree...");
     edges_.clear();
     edge_tree_.clear();
-    
-    std::string file = map_dir + "/mm/edges.shp";
-    OGRDataSource* data_source = OGRSFDriverRegistrar::Open(file.c_str(), FALSE);
+
+    OGRDataSource* data_source = OGRSFDriverRegistrar::Open(map_dir.c_str(), FALSE);
     if (data_source == NULL) {
-        DebugUtility::Print(DebugUtility::Error, "Open " + file + " fail!");
+        DebugUtility::Print(DebugUtility::Error, "Open " + map_dir + " fail!");
         return false;
     }
     
@@ -151,11 +150,10 @@ bool RTree::AddGPSLogs(std::string map_dir, double xmin, double ymin, double xma
     DebugUtility::Print(DebugUtility::Normal, "Add GPS logs to Rtree...");
     
         gps_trajectories_.clear();
-    
-        std::string filename = map_dir + "/mm/logs.shp";
-        OGRDataSource* data_source = OGRSFDriverRegistrar::Open(filename.c_str(), FALSE);
+
+        OGRDataSource* data_source = OGRSFDriverRegistrar::Open(map_dir.c_str(), FALSE);
         if (data_source == NULL) {
-            DebugUtility::Print(DebugUtility::Error, "Open " + filename + " fail!");
+            DebugUtility::Print(DebugUtility::Error, "Open " + map_dir + " fail!");
             return false;
         }
         
@@ -247,6 +245,7 @@ void RTree::InsertRoad(double x1, double y1, double x2, double y2, EdgePropertie
     }
     
     if (find_start && find_end) {
+        
         edge_node_map_.insert(std::make_pair(edge_count_, node_index));
     } else {
         DebugUtility::Print(DebugUtility::Warning, "insert an invalid road!");
@@ -333,3 +332,61 @@ void RTree::TravelEdge(int id) {
         DebugUtility::Print(DebugUtility::Error, "Try to set edge info for a not exist edge!");
     }
 }
+
+void RTree::Save(std::string filename) {
+    std::ofstream ofs(filename + "/node_tree.bin", std::ios::binary | std::ios::trunc);
+    boost::archive::binary_oarchive oa(ofs);
+    oa << node_tree_;
+    ofs.close();
+    
+    std::ofstream ofs1(filename + "/edge_tree.bin", std::ios::binary | std::ios::trunc);
+    boost::archive::binary_oarchive oa1(ofs1);
+    oa1 << node_tree_;
+    ofs1.close();
+    
+    std::ofstream ofs2(filename + "/trajectory_tree.bin", std::ios::binary | std::ios::trunc);
+    boost::archive::binary_oarchive oa2(ofs2);
+    oa2 << node_tree_;
+    ofs2.close();
+    
+    
+}
+
+void RTree::Load(std::string filename) {
+    std::ifstream ifs(filename + "/node_tree.bin", std::ios::binary);
+    boost::archive::binary_iarchive ia(ifs);
+    ia >> node_tree_;
+    ifs.close();
+    
+    std::ifstream ifs1(filename + "/node_tree.bin", std::ios::binary);
+    boost::archive::binary_iarchive ia1(ifs1);
+    ia1 >> edge_tree_;
+    ifs1.close();
+    
+    std::ifstream ifs2(filename + "/node_tree.bin", std::ios::binary);
+    boost::archive::binary_iarchive ia2(ifs2);
+    ia2 >> trajectory_tree_;
+    ifs2.close();
+    
+}
+
+std::string RTree::GetMatchedTrajectoryAsGeoJson(int id) {
+    std::string geojson = "{\"type\": \"FeatureCollection\",\"crs\": { \"type\": \"name\", \"properties\": { \"name\":\"urn:ogc:def:crs:EPSG::3857\" } },\"features\": [";
+    
+    for (int i = 0; i < matched_trajectories_[id].size(); ++i) {
+        int geometry_id = matched_trajectories_[id][i];
+        BoostLineString line_string = edges_.at(geometry_id);
+        double x1 = line_string.at(0).get<0>();
+        double y1 = line_string.at(0).get<1>();
+        double x2 = line_string.at(1).get<0>();
+        double y2 = line_string.at(1).get<1>();
+        
+        geojson += "{\"type\": \"Feature\", \"geometry\": {\"type\": \"LineString\", \"coordinates\": [[" + boost::lexical_cast<std::string>(x1) + "," + boost::lexical_cast<std::string>(y1) + + "], [" + boost::lexical_cast<std::string>(x2) + "," + boost::lexical_cast<std::string>(y2) + + "]]}}";
+        
+        if (i != matched_trajectories_[id].size() - 1)
+            geojson += ",";
+    }
+    geojson += "]}";
+    return geojson;
+}
+

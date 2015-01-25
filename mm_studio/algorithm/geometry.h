@@ -1,12 +1,19 @@
 #ifndef __geometry__hh__
 #define __geometry__hh__
 
+#define BOOST_GEOMETRY_INDEX_DETAIL_EXPERIMENTAL
+
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/geometries.hpp>
 #include <boost/geometry/index/rtree.hpp>
 #include <boost/geometry/multi/geometries/multi_geometries.hpp>
 #include <boost/variant.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#include <boost/archive/xml_oarchive.hpp>
+#include <boost/archive/xml_iarchive.hpp>
 #include <iostream>
+#include <fstream>
 #include <map>
 #include <string>
 #include <vector>
@@ -18,7 +25,7 @@
 namespace bg = boost::geometry;
 namespace bgi = boost::geometry::index;
 
-typedef bg::model::point<float, 2, bg::cs::cartesian> BoostPoint;
+typedef bg::model::point<double, 2, bg::cs::cartesian> BoostPoint;
 typedef bg::model::segment<BoostPoint> BoostSegment;
 typedef bg::model::box<BoostPoint> BoostBox;
 typedef bg::model::polygon<BoostPoint, false, false> BoostPolygon; // ccw, open polygon
@@ -32,7 +39,21 @@ BoostPolygon
 > Boost_Geometry;
 
 // typedef std::map<int, BoostLineString> GeometryMap;
-typedef std::pair<BoostBox, int> Value;
+//typedef std::pair<BoostBox, int> Value;
+
+struct Value {
+    BoostBox box_;
+    int geometry_id_;
+    
+    template<class Archive>
+    void serialize(Archive& archive, const unsigned int version)
+    {
+        archive << box_;
+        archive << geometry_id_;
+    }
+};
+
+
 typedef bgi::rtree<Value, bgi::rstar<16>> Boost_RTree;
 
 struct envelope_visitor : public boost::static_visitor<BoostBox> {
@@ -48,6 +69,16 @@ struct VertexProperties {
     int gps_id_;
     int candidate_id_;
     double location_x_, location_y_;
+    
+    template<class Archive>
+    void serialize(Archive& archive, const unsigned int version)
+    {
+        archive & BOOST_SERIALIZATION_NVP(id_);
+        archive & BOOST_SERIALIZATION_NVP(gps_id_);
+        archive & BOOST_SERIALIZATION_NVP(candidate_id_);
+        archive & BOOST_SERIALIZATION_NVP(location_x_);
+        archive & BOOST_SERIALIZATION_NVP(location_y_);
+    }
 };
 
 // 路网边属性
@@ -56,6 +87,15 @@ struct EdgeProperties {
     double weight_;
     int oneway_;
     int travel_counts_;
+    
+    template<class Archive>
+    void serialize(Archive& archive, const unsigned int version)
+    {
+        archive & BOOST_SERIALIZATION_NVP(id_);
+        archive & BOOST_SERIALIZATION_NVP(weight_);
+        archive & BOOST_SERIALIZATION_NVP(oneway_);
+        archive & BOOST_SERIALIZATION_NVP(travel_counts_);
+    }
 };
 
 struct GPSPoint {

@@ -5,7 +5,6 @@
 #include "CNC/cnc_sparse_matrix.h"
 #include <string>
 #include <vector>
-#include "wx/wx.h"
 
 //! This is the reinforcement learning algorithm
 /*!
