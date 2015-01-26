@@ -50,6 +50,7 @@ private:
     boost::shared_ptr<RTree> tree_;
     boost::shared_ptr<ShapefileGraph> shapefile_graph_;
     int match_id_;
+    bool has_error_;
 };
 
 #endif

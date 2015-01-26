@@ -12,6 +12,9 @@
 #include <boost/archive/binary_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
 #include <boost/archive/xml_iarchive.hpp>
+#include <boost/serialization/utility.hpp>
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/map.hpp>
 #include <iostream>
 #include <fstream>
 #include <map>
@@ -32,29 +35,28 @@ typedef bg::model::polygon<BoostPoint, false, false> BoostPolygon; // ccw, open 
 typedef bg::model::ring<BoostPoint, false, false> BoostRing; // ccw, open ring
 typedef bg::model::linestring<BoostPoint> BoostLineString;;
 
+namespace boost{
+    namespace serialization{
+        
+        template<class Archive>
+        inline void serialize(Archive & ar, BoostLineString &linestring, const unsigned int file_version)
+        {
+            ar & boost::serialization::make_nvp("linestring", static_cast<std::vector<BoostPoint>& >(linestring));
+        }
+    }
+}
+
 typedef boost::variant<
 BoostPoint,
 BoostLineString,
 BoostPolygon
 > Boost_Geometry;
 
-// typedef std::map<int, BoostLineString> GeometryMap;
-//typedef std::pair<BoostBox, int> Value;
+typedef std::pair<BoostBox, int> Value;
 
-struct Value {
-    BoostBox box_;
-    int geometry_id_;
-    
-    template<class Archive>
-    void serialize(Archive& archive, const unsigned int version)
-    {
-        archive << box_;
-        archive << geometry_id_;
-    }
-};
+ typedef bgi::rtree<Value, bgi::rstar<16, 1> > Boost_RTree;
 
-
-typedef bgi::rtree<Value, bgi::rstar<16>> Boost_RTree;
+//typedef bgi::rtree<Value, bgi::linear<16> > Boost_RTree;
 
 struct envelope_visitor : public boost::static_visitor<BoostBox> {
     BoostBox operator()(BoostPoint const& g) const { return bg::return_envelope<BoostBox>(g); }
@@ -104,6 +106,16 @@ struct GPSPoint {
     int t_;
     int head_;
     int speed_;
+    
+    template<class Archive>
+    void serialize(Archive& archive, const unsigned int version)
+    {
+        archive & BOOST_SERIALIZATION_NVP(x_);
+        archive & BOOST_SERIALIZATION_NVP(y_);
+        archive & BOOST_SERIALIZATION_NVP(t_);
+        archive & BOOST_SERIALIZATION_NVP(head_);
+        archive & BOOST_SERIALIZATION_NVP(speed_);
+    }
 };
 
 struct CandidatePoint {
@@ -111,6 +123,16 @@ struct CandidatePoint {
     int edge_id_;
     double proj_x_, proj_y_;
     double distance_;
+    
+    template<class Archive>
+    void serialize(Archive& archive, const unsigned int version)
+    {
+        archive & BOOST_SERIALIZATION_NVP(gps_point_id);
+        archive & BOOST_SERIALIZATION_NVP(edge_id_);
+        archive & BOOST_SERIALIZATION_NVP(proj_x_);
+        archive & BOOST_SERIALIZATION_NVP(proj_y_);
+        archive & BOOST_SERIALIZATION_NVP(distance_);
+    }
 };
 
 struct CandidateTrajectory {
@@ -132,6 +154,16 @@ struct CandidateTrajectory {
     
     bool operator< (const CandidateTrajectory& path) const {
         return (this->from_gps_point_ > this->to_gps_point_);
+    }
+    
+    template<class Archive>
+    void serialize(Archive& archive, const unsigned int version)
+    {
+        archive & BOOST_SERIALIZATION_NVP(from_gps_point_);
+        archive & BOOST_SERIALIZATION_NVP(to_gps_point_);
+        archive & BOOST_SERIALIZATION_NVP(from_candidate_point_);
+        archive & BOOST_SERIALIZATION_NVP(to_candiate_point_);
+        archive & BOOST_SERIALIZATION_NVP(trajectory_);
     }
 
 };

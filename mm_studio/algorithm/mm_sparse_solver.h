@@ -74,6 +74,8 @@ public:
     //inline std::vector<State>& get_parsing_result() { return parsing_result_; }
     bool parsing_result_valid();
     
+    void SaveLearningResultAsGeojson(std::string filename);
+    
     void Clear();
 protected:
     //! Reset the model.

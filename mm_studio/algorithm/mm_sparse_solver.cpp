@@ -35,7 +35,6 @@ bool MM::InitModel(boost::shared_ptr<RTree> tree, boost::shared_ptr<Route> route
     
     initial_state_size_ = candidate_set[0].size();
     std::vector<int> initial_traj;
-    initial_traj.push_back(-1);
     
     for (int i = 0; i < initial_state_size_; ++i) {
         CandidateTrajectory ct = {
@@ -127,9 +126,9 @@ bool MM::InitSymbolSuitableActions() {
             Action action = index_to_action_.at(j);
             
             if (state.gps_id_ == action.from_gps_point_ &&
-                state.candidate_id_ == action.from_candidate_point_ &&
+                state.candidate_id_ == action.from_candidate_point_ //&&
                 // action.length_ != 0 &&
-                action.trajectory_.size() > 0
+                //action.trajectory_.size() > 0
                 ) {
                 suitable_actions.push_back(j);
             }
@@ -137,8 +136,8 @@ bool MM::InitSymbolSuitableActions() {
         
         suitable_actions_for_state_.insert(std::make_pair(i, suitable_actions));
      
-        DebugUtility::Print(DebugUtility::Normal, "状态 " + boost::lexical_cast<std::string>(i) +
-                            " 对应 " + boost::lexical_cast<std::string>(suitable_actions.size()) + " 个决策。\n");
+//        DebugUtility::Print(DebugUtility::Normal, "状态 " + boost::lexical_cast<std::string>(i) +
+//                            " 对应 " + boost::lexical_cast<std::string>(suitable_actions.size()) + " 个决策。\n");
     }
     
     // 确保每个非终止状态都有对应的对策
@@ -302,14 +301,18 @@ double MM::RunTask(State& state) {
         double dist_score = GeometryUtility::Distance(point.x_, point.y_, x1, y1);
         double dist_power = 2.0;
         double dist_k = -1.0;
-        double dist_const = 1000;
+        double dist_const = 100;
         dist_score = dist_const + dist_k * pow(dist_score, dist_power);
         
         // 候选路径评分
+        double route_score = 0;
         for (int i = 0; i < action.trajectory_.size(); ++i) {
             int travel_count = tree_->GetRoadInfo(action.trajectory_[i]).travel_counts_;
-            score += travel_count;
+            route_score += travel_count;
         }
+        route_score /= action.trajectory_.size();
+        
+        score = route_score + dist_score;
         
         // 该状态是否是终止状态？
         if (next_state.gps_id_ == terminal_state_) {
@@ -352,4 +355,31 @@ bool MM::parsing_result_valid() {
     }
     
     return true;
+}
+
+void MM::SaveLearningResultAsGeojson(std::string filename) {
+    std::string geojson = "{\"type\": \"FeatureCollection\",\"crs\": { \"type\": \"name\", \"properties\": { \"name\":\"urn:ogc:def:crs:EPSG::3857\" } },\"features\": [";
+    
+    for (int i = 1; i < action_list_.size(); ++i) {
+        std::vector<int>& edges = action_list_[i].trajectory_;
+        
+        for (int j = 0; j < edges.size(); ++j) {
+            BoostLineString line = tree_->GetEdge(edges[j]);
+            
+            double x1 = line.at(0).get<0>();
+            double y1 = line.at(0).get<1>();
+            double x2 = line.at(1).get<0>();
+            double y2 = line.at(1).get<1>();
+            
+            geojson += "{\"type\": \"Feature\", \"geometry\": {\"type\": \"LineString\", \"coordinates\": [[" + boost::lexical_cast<std::string>(x1) + "," + boost::lexical_cast<std::string>(y1) + + "], [" + boost::lexical_cast<std::string>(x2) + "," + boost::lexical_cast<std::string>(y2) + + "]]}}";
+            
+            if (i != action_list_.size() - 1 || j != edges.size() - 1)
+                geojson += ",";
+        }
+    }
+    geojson += "]}";
+    
+    std::ofstream ofs(filename);
+    ofs << geojson << std::endl;
+    ofs.close();
 }

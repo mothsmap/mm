@@ -85,35 +85,43 @@ void ShapefileGraph::PrintEdgesOnVertex() {
 }
 
 void ShapefileGraph::Save(std::string filename) {
-    std::ofstream ofs(filename + "/graph.xml");
+    std::ofstream ofs(filename);
     boost::archive::xml_oarchive oa(ofs);
     boost::serialization::save(oa, graph_, 0);
+    
+    oa & BOOST_SERIALIZATION_NVP(vertex_);
+    oa & BOOST_SERIALIZATION_NVP(edges_on_vertex_);
+    
     ofs.close();
     
-    std::ofstream ofs2(filename + "/node_edge.xml");
-    boost::archive::xml_oarchive oa2(ofs2);
-    oa2 & BOOST_SERIALIZATION_NVP(vertex_);
-    
- //   for (int i = 0; i < edges_on_vertex_.size(); ++i) {
-        oa2 & BOOST_SERIALIZATION_NVP(edges_on_vertex_);
- //   }
-    
-    ofs2.close();
+//    std::ofstream ofs2(filename + "/node_edge.xml");
+//    boost::archive::xml_oarchive oa2(ofs2);
+//    oa2 & BOOST_SERIALIZATION_NVP(vertex_);
+//    
+// //   for (int i = 0; i < edges_on_vertex_.size(); ++i) {
+//        oa2 & BOOST_SERIALIZATION_NVP(edges_on_vertex_);
+// //   }
+//    
+//    ofs2.close();
 }
 
 void ShapefileGraph::Load(std::string filename) {
-    std::ifstream ifs(filename + "/graph.xml");
+    std::ifstream ifs(filename);
     boost::archive::xml_iarchive ia(ifs);
     boost::serialization::load(ia, graph_, 0);
+    
+    ia & BOOST_SERIALIZATION_NVP(vertex_);
+    ia & BOOST_SERIALIZATION_NVP(edges_on_vertex_);
+    
     ifs.close();
     
-    std::ifstream ifs2(filename + "/node_edge.xml");
-    boost::archive::xml_iarchive ia2(ifs2);
-    ia2 >> BOOST_SERIALIZATION_NVP(vertex_);
-
-    ia2 >> BOOST_SERIALIZATION_NVP(edges_on_vertex_);
-    
-    ifs2.close();
+//    std::ifstream ifs2(filename + "/node_edge.xml");
+//    boost::archive::xml_iarchive ia2(ifs2);
+//    ia2 >> BOOST_SERIALIZATION_NVP(vertex_);
+//
+//    ia2 >> BOOST_SERIALIZATION_NVP(edges_on_vertex_);
+//    
+//    ifs2.close();
 }
 
 std::vector<int> ShapefileGraph::GetEdgeOnVertex(int id) {

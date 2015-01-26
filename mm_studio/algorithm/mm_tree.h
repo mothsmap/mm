@@ -28,8 +28,11 @@ public:
     // 插入轨迹点匹配到的道路边
     void InsertMatchedTrajectory(std::vector<int> traj, int id);
     
-    void Save(std::string filename);
-    void Load(std::string filename);
+    void SaveRoad(std::string filename);
+    void LoadRoad(std::string filename);
+    
+    void SaveTrajectory(std::string filename);
+    void LoadTrajectory(std::string filename);
     
     /************** 查询函数 *************************/
     // 根据范围查询

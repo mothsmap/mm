@@ -8,6 +8,7 @@
 MMDensity::MMDensity(boost::shared_ptr<RTree> rtree, boost::shared_ptr<ShapefileGraph> shapefile_graph) {
     tree_ = rtree;
     shapefile_graph_ = shapefile_graph;
+    has_error_ = false;
 }
 
 MMDensity::~MMDensity() {
@@ -17,7 +18,12 @@ MMDensity::~MMDensity() {
 void MMDensity::Match() {
     int ntrajectories = tree_->trajectory_size();
     for (int i = 0; i < ntrajectories; ++i) {
-        tree_->InsertMatchedTrajectory(Match(i), i);
+        std::vector<int> matched = Match(i);
+        if (!has_error_) {
+            tree_->InsertMatchedTrajectory(matched, i);
+        } else {
+            has_error_ = false;
+        }
     }
 }
 
@@ -155,6 +161,11 @@ std::vector<int> MMDensity::Match(int trajectory_id) {
             }
             
         } // for (int i = 0; i < edge_set.size(); ++i)
+        
+        if (best_edge_id == -1) {
+            has_error_ = true;
+            return matched;
+        }
         
         DebugUtility::Print(DebugUtility::Normal, "Best edge is [id, x1, y1, x2, y2]: [" +
                             boost::lexical_cast<std::string>(best_edge_id) + "," +

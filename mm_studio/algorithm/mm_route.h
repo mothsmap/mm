@@ -20,7 +20,8 @@ public:
     
     void InsertCandidatePoint(CandidatePoint candidate_point);
     
-    void ComputeCandidateTrajectorySet(boost::shared_ptr<RTree> tree);
+    bool ComputeCandidatePointSet(boost::shared_ptr<RTree> tree, double dist_thd);
+    bool ComputeCandidateTrajectorySet(boost::shared_ptr<RTree> tree, double dist_thd);
     
     // 重采样
     void Resample(double res);
@@ -36,6 +37,7 @@ public:
     
 private:
     // taxi route points
+    double sample_ra
     GPSTrajectory route_;
     std::vector<CandidatePointSet> candidate_sets_;
     std::vector<CandidateTrajectory> candidate_trajectories_;

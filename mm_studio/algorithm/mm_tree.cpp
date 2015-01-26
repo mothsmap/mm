@@ -96,6 +96,7 @@ bool RTree::AddNodes(std::string map_dir, double xmin, double ymin, double xmax,
         feature = layer->GetNextFeature();
     }
     
+    DebugUtility::Print(DebugUtility::Normal, "Add " + boost::lexical_cast<std::string>(node_count_) + " nodes.");
     return true;
 }
 
@@ -143,6 +144,7 @@ bool RTree::AddEdges(std::string map_dir, double xmin, double ymin, double xmax,
         feature = layer->GetNextFeature();
     }
     
+    DebugUtility::Print(DebugUtility::Normal, "Add " + boost::lexical_cast<std::string>(edge_count_) + " edges.");
     return true;
 }
 
@@ -185,9 +187,9 @@ bool RTree::AddGPSLogs(std::string map_dir, double xmin, double ymin, double xma
                     trajectory.push_back(gps_point);
                 }
             } else {
-                if (trajectory.size() > 0) {
+                if (trajectory.size() > 10) {
                     this->InsertGPSTrajectory(trajectory);
-#if 1
+#if 0
                     std::cout << "insert a gps trajectory: ";
                     for (int i = 0; i < trajectory.size(); ++i) {
                         std::cout << trajectory[i].t_ << "\t";
@@ -201,7 +203,8 @@ bool RTree::AddGPSLogs(std::string map_dir, double xmin, double ymin, double xma
             OGRFeature::DestroyFeature (feature);
             feature = layer->GetNextFeature();
         }
-        
+    
+    DebugUtility::Print(DebugUtility::Normal, "Add " + boost::lexical_cast<std::string>(trajectories_count_) + " trajectories.");
         return true;
 }
 
@@ -333,41 +336,67 @@ void RTree::TravelEdge(int id) {
     }
 }
 
-void RTree::Save(std::string filename) {
-    std::ofstream ofs(filename + "/node_tree.bin", std::ios::binary | std::ios::trunc);
-    boost::archive::binary_oarchive oa(ofs);
-    oa << node_tree_;
+void RTree::SaveTrajectory(std::string filename) {
+    std::ofstream ofs(filename);
+    boost::archive::xml_oarchive oa(ofs);
+    
+    oa & BOOST_SERIALIZATION_NVP(trajectory_tree_);
+    
+    oa & BOOST_SERIALIZATION_NVP(gps_trajectories_);
+    oa & BOOST_SERIALIZATION_NVP(matched_trajectories_);
+    
     ofs.close();
-    
-    std::ofstream ofs1(filename + "/edge_tree.bin", std::ios::binary | std::ios::trunc);
-    boost::archive::binary_oarchive oa1(ofs1);
-    oa1 << node_tree_;
-    ofs1.close();
-    
-    std::ofstream ofs2(filename + "/trajectory_tree.bin", std::ios::binary | std::ios::trunc);
-    boost::archive::binary_oarchive oa2(ofs2);
-    oa2 << node_tree_;
-    ofs2.close();
-    
-    
 }
 
-void RTree::Load(std::string filename) {
-    std::ifstream ifs(filename + "/node_tree.bin", std::ios::binary);
-    boost::archive::binary_iarchive ia(ifs);
-    ia >> node_tree_;
+void RTree::LoadTrajectory(std::string filename) {
+    std::ifstream ifs(filename);
+    
+    boost::archive::xml_iarchive ia(ifs);
+    ia & BOOST_SERIALIZATION_NVP(trajectory_tree_);
+    
+    ia & BOOST_SERIALIZATION_NVP(gps_trajectories_);
+    ia & BOOST_SERIALIZATION_NVP(matched_trajectories_);
+    
     ifs.close();
     
-    std::ifstream ifs1(filename + "/node_tree.bin", std::ios::binary);
-    boost::archive::binary_iarchive ia1(ifs1);
-    ia1 >> edge_tree_;
-    ifs1.close();
+    trajectories_count_ = gps_trajectories_.size();
+}
+
+void RTree::SaveRoad(std::string filename) {
+    std::ofstream ofs(filename);
+    boost::archive::xml_oarchive oa(ofs);
+    oa & BOOST_SERIALIZATION_NVP(node_tree_);
+    oa & BOOST_SERIALIZATION_NVP(edge_tree_);
     
-    std::ifstream ifs2(filename + "/node_tree.bin", std::ios::binary);
-    boost::archive::binary_iarchive ia2(ifs2);
-    ia2 >> trajectory_tree_;
-    ifs2.close();
+    oa & BOOST_SERIALIZATION_NVP(nodes_);
+    oa & BOOST_SERIALIZATION_NVP(node_info_);
     
+    oa & BOOST_SERIALIZATION_NVP(edges_);
+    oa & BOOST_SERIALIZATION_NVP(edge_info_);
+    
+    oa & BOOST_SERIALIZATION_NVP(edge_node_map_);
+    
+    ofs.close();
+}
+
+void RTree::LoadRoad(std::string filename) {
+    std::ifstream ifs(filename);
+    boost::archive::xml_iarchive ia(ifs);
+    ia & BOOST_SERIALIZATION_NVP(node_tree_);
+    ia & BOOST_SERIALIZATION_NVP(edge_tree_);
+    
+    ia & BOOST_SERIALIZATION_NVP(nodes_);
+    ia & BOOST_SERIALIZATION_NVP(node_info_);
+    
+    ia & BOOST_SERIALIZATION_NVP(edges_);
+    ia & BOOST_SERIALIZATION_NVP(edge_info_);
+    
+    ia & BOOST_SERIALIZATION_NVP(edge_node_map_);
+    
+    ifs.close();
+    
+    node_count_ = nodes_.size();
+    edge_count_ = edges_.size();
 }
 
 std::string RTree::GetMatchedTrajectoryAsGeoJson(int id) {

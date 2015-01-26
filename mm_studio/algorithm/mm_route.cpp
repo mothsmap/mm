@@ -117,6 +117,15 @@ std::vector<int> FilterTrajectory(std::vector<int>& item, boost::shared_ptr<RTre
     
     for (int i = 0; i < item.size(); ++i) {
         std::vector<int>& traj = tree->GetMatchedTrajectory(item[i]);
+#if 0
+        for (int i = 0; i < traj.size(); ++i) {
+            std::cout << traj[i] << ", ";
+        }
+        std::cout << std::endl;
+        
+        std::cout << "from edge id: " << from_edge_id << ", to edge id: " << to_edge_id << std::endl;
+#endif
+        
         std::vector<int> filter_traj;
         double score = 0;
         int from_index = -1;
@@ -129,35 +138,40 @@ std::vector<int> FilterTrajectory(std::vector<int>& item, boost::shared_ptr<RTre
             if (traj[j] == to_edge_id) {
                 to_index = j;
             }
-        }
-        
-        if (from_index <= to_index) {
-            for (int j = from_index; j <= to_index; ++j) {
-                filter_traj.push_back(traj[j]);
-                score = score + tree->GetRoadInfo(traj[j]).travel_counts_;
-            }
             
-            if (best_score < score) {
-                best_score = score;
-                result = filter_traj;
-            }
-        }
-    }
+            // 历史轨迹是有方向的，from_index 必须要小于等于 to_index
+            if (from_index != -1 && to_index != -1 && from_index <= to_index) {
+                for (int j = from_index; j <= to_index; ++j) {
+                    filter_traj.push_back(traj[j]);
+                    score = score + tree->GetRoadInfo(traj[j]).travel_counts_;
+                }
+                
+                score /= (to_index - from_index) + 1;
+                
+                if (best_score < score) {
+                    best_score = score;
+                    result = filter_traj;
+                }
+            } // if
+        } // for
+    } // for
+    
     return result;
 }
-
-void Route::ComputeCandidateTrajectorySet(boost::shared_ptr<RTree> tree) {
-    const double margin = 0.5;
+    
+    
+bool Route::ComputeCandidateTrajectorySet(boost::shared_ptr<RTree> tree, double dist_thd) {
+    DebugUtility::Print(DebugUtility::Normal, "GPS point size: " + boost::lexical_cast<std::string>(candidate_sets_.size()));
     
     for (int i = 0; i < candidate_sets_.size() - 1; ++i) {
         bool find = false;
         for (int m = 0; m < candidate_sets_[i].size(); ++m) {
             for (int n = 0; n < candidate_sets_[i + 1].size(); ++n) {
                 CandidatePoint from = candidate_sets_[i][m];
-                CandidatePoint to = candidate_sets_[i][n];
-                std::vector<Value> from_traj_set = tree->Query(TRAJECTORY, from.proj_x_ - margin, from.proj_y_ - margin, from.proj_x_ + margin, from.proj_y_ + margin);
+                CandidatePoint to = candidate_sets_[i + 1][n];
+                std::vector<Value> from_traj_set = tree->Query(TRAJECTORY, from.proj_x_ - dist_thd, from.proj_y_ - dist_thd, from.proj_x_ + dist_thd, from.proj_y_ + dist_thd);
                 
-                std::vector<Value> to_traj_set = tree->Query(TRAJECTORY, to.proj_x_ - margin, to.proj_y_ - margin, to.proj_x_ + margin, to.proj_y_ + margin);
+                std::vector<Value> to_traj_set = tree->Query(TRAJECTORY, to.proj_x_ - dist_thd, to.proj_y_ - dist_thd, to.proj_x_ + dist_thd, to.proj_y_ + dist_thd);
                 
                 if (from_traj_set.size() == 0 || to_traj_set.size() == 0)
                     continue;
@@ -182,7 +196,51 @@ void Route::ComputeCandidateTrajectorySet(boost::shared_ptr<RTree> tree) {
             }
         }
         if (!find) {
-            DebugUtility::Print(DebugUtility::Error, "GPS point " + boost::lexical_cast<std::string>(i) + "has no path to next GPS point");
+            DebugUtility::Print(DebugUtility::Error, "GPS point " + boost::lexical_cast<std::string>(i) + " has no path to next GPS point");
         }
     }
+
+    return true;
+}
+
+bool Route::ComputeCandidatePointSet(boost::shared_ptr<RTree> tree, double dist_thd) {
+    const GPSTrajectory& points = this->getRoute();
+    for (int i = 0; i < points.size(); ++i) {
+        // std::vector<Value> result = tree_->Query(EDGE, BoostPoint(points[i].x_, points[i].y_), elements);
+        std::vector<Value> result = tree->Query(EDGE, points[i].x_ - dist_thd, points[i].y_ - dist_thd, points[i].x_ + dist_thd, points[i].y_ + dist_thd);
+        
+        if (result.size() == 0) {
+            DebugUtility::Print(DebugUtility::Error, "Candidate point set is empty!");
+            return false;
+        }
+        
+        // 点i的候选点
+        for (int j = 0; j < result.size(); ++j) {
+            int geometry_id = result[j].second;
+            BoostLineString line = tree->GetEdge(geometry_id);
+            EdgeProperties info = tree->GetRoadInfo(geometry_id);
+            if (info.id_ != geometry_id) {
+                DebugUtility::Print(DebugUtility::Error, "Edge id insistent!");
+            }
+            
+            // 线段两个端点
+            double x1 = line.at(0).get<0>();
+            double y1 = line.at(0).get<1>();
+            double x2 = line.at(1).get<0>();
+            double y2 = line.at(1).get<1>();
+            double xx, yy;
+            GeometryUtility::GetProjectPoint(x1, y1, x2, y2, points[i].x_, points[i].y_, xx, yy);
+            
+            CandidatePoint cp = {
+                i, // int gps_point_id;
+                geometry_id, // int edge_id_;
+                xx, yy, // double proj_x_, proj_y_;
+                GeometryUtility::Distance(xx, yy, points[i].x_, points[i].y_) // double distance_;
+            };
+            
+            this->InsertCandidatePoint(cp);
+        }
+    }
+    
+    return true;
 }
