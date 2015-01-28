@@ -11,7 +11,16 @@
 using namespace std;
 
 // 数据目录存放着路网（edges.shp),结点(nodes.shp)和历史轨迹数据(history.shp)
-std::string data_dir = "/Volumes/second/mm_data";
+std::string prepare_dir = "/Volumes/second/mm_data/prepare";
+std::string data_dir = "/Volumes/second/mm_data/sparse_resample";
+std::string out_dir = "/Volumes/second/mm_data/sparse_result";
+
+// 输入
+std::string input = data_dir + "/tx_1m.shp";
+//std::string input = data_dir + "/../mm_data_test/test0.shp";
+
+// 输出
+std::string output = out_dir + "/tx.geojson";
 
 boost::shared_ptr<RTree> tree = boost::shared_ptr<RTree>(new RTree);
 boost::shared_ptr<ShapefileGraph> graph = boost::shared_ptr<ShapefileGraph>(new ShapefileGraph(tree));
@@ -20,12 +29,12 @@ boost::shared_ptr<MM> sparse_solver = boost::shared_ptr<MM>(new MM());
 
 
 int main() {
-    graph->Load(data_dir + "/graph.xml");
-    tree->LoadRoad(data_dir + "/roads.xml");
-    tree->LoadTrajectory(data_dir + "/trajectory.xml");
+    graph->Load(prepare_dir + "/graph.xml");
+    tree->LoadRoad(prepare_dir + "/roads.xml");
+    tree->LoadTrajectory(prepare_dir + "/trajectory.xml");
     
     // 加载稀疏点
-    if (!route->Load(data_dir + "/../mm_data_test/test_0.shp")) {
+    if (!route->Load(input)) {
         std::cout << "Loading route fail!\n";
         return -1;
     }
@@ -37,7 +46,7 @@ int main() {
     }
     
     // 寻找候选边集
-    if (!route->ComputeCandidateTrajectorySet(tree, 1)) {
+    if (!route->ComputeCandidateTrajectorySet(tree, graph, 1.0)) {
         std::cout << "Find Candidate trajectory set fail!\n";
         return -1;
     }
@@ -52,7 +61,7 @@ int main() {
     std::cout << "Score = " << score << std::endl;
     
     // 保存结果
-    sparse_solver->SaveLearningResultAsGeojson(data_dir + "/out.geojson");
+    sparse_solver->SaveLearningResultAsGeojson(output);
     
     return 0;
 }

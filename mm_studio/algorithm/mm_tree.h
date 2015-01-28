@@ -17,7 +17,9 @@ public:
     
     /************** 构建函数 *************************/
     // 给定路网的结点和边所在的目录，建立R树
-    bool Build(std::string node_file, std::string edge_file, std::string history_file, double xmin, double ymin, double xmax, double ymax);
+    bool BuildRoad(std::string node_file, std::string edge_file, double xmin, double ymin, double xmax, double ymax);
+    
+    bool BuildTrajectory(std::string history_file, double xmin, double ymin, double xmax, double ymax);
     
     // 插入结点
     void InsertNode(double x, double y, VertexProperties info);
@@ -52,15 +54,18 @@ public:
     inline BoostLineString GetEdge(int id) { return edges_.at(id); }
     inline BoostPoint GetNode(int id) { return nodes_.at(id); }
     inline GPSTrajectory& GetTrajectory(int id) { return gps_trajectories_.at(id); }
+    inline bool HasMatchedTrajectory(int id) { return (matched_trajectories_.find(id) != matched_trajectories_.end()); }
     inline std::vector<int>& GetMatchedTrajectory(int id) { return matched_trajectories_.at(id); }
     inline int GetMatchedTrajectorySize() { return matched_trajectories_.size(); }
     std::string GetMatchedTrajectoryAsGeoJson(int id);
     
+    double GetRoadLength(int id);
     inline EdgeProperties GetRoadInfo(int id) { return edge_info_.at(id); }
     inline VertexProperties GetNodeInfo(int id) { return node_info_.at(id); }
     inline bool HasRoad(int id) { return edges_.find(id) != edges_.end(); }
     inline bool HasNode(int id) { return nodes_.find(id) != nodes_.end(); }
     
+    inline bool HasEdgeNode(int id) { return (edge_node_map_.find(id) != edge_node_map_.end()); }
     inline std::vector<int>& GetEdgeNode(int id) { return edge_node_map_.at(id); }
     
     void PrintLine(int id);

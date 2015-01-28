@@ -1,6 +1,7 @@
 #include "mm_route.h"
 #include "mm_tree.h"
 #include "geometry.h"
+#include "mm_graph.h"
 #include "debug.h"
 #include "ogrsf_frmts.h"
 
@@ -111,12 +112,18 @@ std::vector<int> FindSameItem(std::vector<Value>& from, std::vector<Value>& to) 
     return same_item;
 }
 
-std::vector<int> FilterTrajectory(std::vector<int>& item, boost::shared_ptr<RTree> tree, int from_edge_id, int to_edge_id) {
+std::vector<int> FilterTrajectory(std::vector<int>& item, boost::shared_ptr<RTree> tree, int from_edge_id, int to_edge_id, double max_length) {
     std::vector<int> result;
     double best_score = -1000;
     
     for (int i = 0; i < item.size(); ++i) {
+        if (!tree->HasMatchedTrajectory(item[i])) {
+            DebugUtility::Print(DebugUtility::Error, "No matched trajectory of id: " + boost::lexical_cast<std::string>(item[i]));
+            continue;
+        }
+        
         std::vector<int>& traj = tree->GetMatchedTrajectory(item[i]);
+        
 #if 0
         for (int i = 0; i < traj.size(); ++i) {
             std::cout << traj[i] << ", ";
@@ -138,53 +145,81 @@ std::vector<int> FilterTrajectory(std::vector<int>& item, boost::shared_ptr<RTre
             if (traj[j] == to_edge_id) {
                 to_index = j;
             }
-            
-            // 历史轨迹是有方向的，from_index 必须要小于等于 to_index
-            if (from_index != -1 && to_index != -1 && from_index <= to_index) {
-                for (int j = from_index; j <= to_index; ++j) {
-                    filter_traj.push_back(traj[j]);
-                    score = score + tree->GetRoadInfo(traj[j]).travel_counts_;
-                }
-                
-                score /= (to_index - from_index) + 1;
-                
-                if (best_score < score) {
-                    best_score = score;
-                    result = filter_traj;
-                }
-            } // if
         } // for
+        
+        // 历史轨迹是有方向的，from_index 必须要小于等于 to_index
+        if (from_index != -1 && to_index != -1 && from_index <= to_index) {
+            double length = 0;
+            for (int j = from_index; j <= to_index; ++j) {
+                filter_traj.push_back(traj[j]);
+                score = score + tree->GetRoadInfo(traj[j]).travel_counts_;
+                
+                if (j != from_index && j != to_index) {
+                    length += tree->GetRoadLength(traj[j]);
+                }
+            }
+            
+            score /= (to_index - from_index + 1);
+            
+            if (length < max_length && best_score < score) {
+                best_score = score;
+                result = filter_traj;
+            }
+        } // if
     } // for
     
     return result;
 }
-    
-    
-bool Route::ComputeCandidateTrajectorySet(boost::shared_ptr<RTree> tree, double dist_thd) {
+
+
+bool Route::ComputeCandidateTrajectorySet(boost::shared_ptr<RTree> tree, boost::shared_ptr<ShapefileGraph> graph, double dist_thd) {
     DebugUtility::Print(DebugUtility::Normal, "GPS point size: " + boost::lexical_cast<std::string>(candidate_sets_.size()));
     
     for (int i = 0; i < candidate_sets_.size() - 1; ++i) {
-        bool find = false;
+        // 对每一个GPS点集循环处理
         for (int m = 0; m < candidate_sets_[i].size(); ++m) {
+            // 当前点集的所有候选点
             for (int n = 0; n < candidate_sets_[i + 1].size(); ++n) {
+                // 下一点集的所有候选点
                 CandidatePoint from = candidate_sets_[i][m];
                 CandidatePoint to = candidate_sets_[i + 1][n];
+                
                 std::vector<Value> from_traj_set = tree->Query(TRAJECTORY, from.proj_x_ - dist_thd, from.proj_y_ - dist_thd, from.proj_x_ + dist_thd, from.proj_y_ + dist_thd);
                 
                 std::vector<Value> to_traj_set = tree->Query(TRAJECTORY, to.proj_x_ - dist_thd, to.proj_y_ - dist_thd, to.proj_x_ + dist_thd, to.proj_y_ + dist_thd);
                 
-                if (from_traj_set.size() == 0 || to_traj_set.size() == 0)
-                    continue;
+                // 两点间的最后路径
+                std::vector<int> best_traj;
                 
-                // 找出共同的结果
+                // 找出共同的历史轨迹，若没有，则求两点间的最短路径
                 std::vector<int> same_item = FindSameItem(from_traj_set, to_traj_set);
-                if (same_item.size() == 0)
-                    continue;
+                if (same_item.size() > 0) {
+                    // 计算路径的最大长度
+                    int sample_rate = route_[i + 1].t_ - route_[i].t_;
+                    double max_speed = route_[i].speed_ > route_[i + 1].speed_ ? route_[i].speed_ : route_[i + 1].speed_;
+                    double max_length = max_speed * sample_rate;
+                    
+                    // 提取候选点之间的轨迹
+                    best_traj = FilterTrajectory(same_item, tree, from.edge_id_, to.edge_id_, max_length);
+                }
                 
-                // 提取候选点之间的轨迹
-                std::vector<int> best_traj = FilterTrajectory(same_item, tree, from.edge_id_, to.edge_id_);
-                if (best_traj.size() == 0)
-                    continue;
+                if (same_item.size() == 0 || best_traj.size() == 0) {
+                    DebugUtility::Print(DebugUtility::Warning, "No suitable trajectory in history experience, find the shortest path...");
+                    // 若历史轨迹中没有对应的轨迹，则求出两点间的最短路径
+                    double length;
+                    
+                    //首先要找到离两候选点最近的图上的节点
+                    std::vector<int> nodes1 = tree->GetEdgeNode(from.edge_id_);
+                    std::vector<int> nodes2 = tree->GetEdgeNode(to.edge_id_);
+                    
+                    int n1 = GeometryUtility::Distance(tree->GetNode(nodes1[0]).get<0>(), tree->GetNode(nodes1[0]).get<1>(), from.proj_x_, from.proj_y_) > GeometryUtility::Distance(tree->GetNode(nodes1[1]).get<0>(), tree->GetNode(nodes1[1]).get<1>(), from.proj_x_, from.proj_y_) ? nodes1[1] : nodes1[0];
+                    
+                    int n2 = GeometryUtility::Distance(tree->GetNode(nodes2[0]).get<0>(), tree->GetNode(nodes2[0]).get<1>(), to.proj_x_, to.proj_y_) > GeometryUtility::Distance(tree->GetNode(nodes2[1]).get<0>(), tree->GetNode(nodes2[1]).get<1>(), to.proj_x_, to.proj_y_) ? nodes2[1] : nodes2[0];
+                    
+                    if (!graph->ShortestPath(n1, n2, best_traj, length)) {
+                        DebugUtility::Print(DebugUtility::Error, "Calculate shortest path fail!");
+                    }
+                }
                 
                 // 插入
                 CandidateTrajectory candidate_trajectory = {
@@ -192,14 +227,9 @@ bool Route::ComputeCandidateTrajectorySet(boost::shared_ptr<RTree> tree, double 
                 };
         
                 candidate_trajectories_.push_back(candidate_trajectory);
-                find = true;
             }
         }
-        if (!find) {
-            DebugUtility::Print(DebugUtility::Error, "GPS point " + boost::lexical_cast<std::string>(i) + " has no path to next GPS point");
-        }
     }
-
     return true;
 }
 

@@ -38,9 +38,9 @@ bool MM::InitModel(boost::shared_ptr<RTree> tree, boost::shared_ptr<Route> route
     
     for (int i = 0; i < initial_state_size_; ++i) {
         CandidateTrajectory ct = {
-            -1, 0,
-            -1, i,
-            initial_traj
+            -1, 0, // from gps id, to gps id
+            -1, i, // from candidate id, to candidate id
+            initial_traj // trajectory
         };
 
         candidate_trajectory.push_back(ct);
@@ -172,8 +172,13 @@ double MM::RunParsingAlgorithm(int episodes, int greedy_episodes, double learnin
     
     // 总共学习@episodes_次
     for(int i = 0; i < episodes_; ++i) {
-        unsigned int rand_seed = static_cast<unsigned int>(std::time(0));
-        std::srand(rand_seed);
+        //unsigned int rand_seed = static_cast<unsigned int>(std::time(0));
+        //std::srand(rand_seed);
+//#ifdef WIN32
+//        srand(time(0));
+//#else
+//        srand48(clock());
+//#endif
         
         // 动态调整学习参数
         double seed = (double) i / (double) episodes_;
@@ -186,7 +191,7 @@ double MM::RunParsingAlgorithm(int episodes, int greedy_episodes, double learnin
         
         // 从初始状态开始学习
         double score = RunTask(current_state_);
-        
+#if 1
         // 每一千次学习输出当前学习成果（得分）及相应参数
         if((i + 1) % 100 == 0) {
             DebugUtility::Print(DebugUtility::Verbose, "场景 " + boost::lexical_cast<std::string>(i) +
@@ -195,6 +200,7 @@ double MM::RunParsingAlgorithm(int episodes, int greedy_episodes, double learnin
                                 ", learning rate = " + boost::lexical_cast<std::string>(learning_rate_) +
                                 ", gamma = " + boost::lexical_cast<std::string>(gamma_));
         }
+#endif
     }
 
     // 使用更大的贪婪性去学习
@@ -208,12 +214,15 @@ double MM::RunParsingAlgorithm(int episodes, int greedy_episodes, double learnin
         
         // Parsing from root state
         score = RunTask(current_state_);
-        
-        DebugUtility::Print(DebugUtility::Verbose, "场景 " + boost::lexical_cast<std::string>(i) +
-                            ": score = " + boost::lexical_cast<std::string>(score) +
-                            ", epsilon " + boost::lexical_cast<std::string>(epsilon_) +
-                            ", learning rate = " + boost::lexical_cast<std::string>(learning_rate_) +
-                            ", gamma = " + boost::lexical_cast<std::string>(gamma_));
+#if 1
+        if((i + 1) % 100 == 0) {
+            DebugUtility::Print(DebugUtility::Verbose, "场景 " + boost::lexical_cast<std::string>(i) +
+                                ": score = " + boost::lexical_cast<std::string>(score) +
+                                ", epsilon " + boost::lexical_cast<std::string>(epsilon_) +
+                                ", learning rate = " + boost::lexical_cast<std::string>(learning_rate_) +
+                                ", gamma = " + boost::lexical_cast<std::string>(gamma_));
+        }
+#endif
     }
 
     // 根据学习的结果使用贪婪算法得到最优解
@@ -245,75 +254,87 @@ double MM::RunTask(State& state) {
         // 当前状态的索引
         int state_index = state_to_index_.at(state);
         
+        State next_state;
+        
         // 当前状态对应的决策集，不应该是空的
         std::vector<int> suitable_actions = suitable_actions_for_state_.at(state_index);
-        if (suitable_actions.size() == 0)
-            return -10.0;
-
-        // 探索一个决策
-        Explore(state_index, action_index, epsilon_, suitable_actions);
-        Action action = index_to_action_.at(action_index);
-        
-        // 该决策导致状态转移
-        State next_state;
-        next_state.gps_id_ = action.to_gps_point_;
-        next_state.candidate_id_ = action.to_candiate_point_;
-        next_state_index = state_to_index_.at(next_state);
-        
-        // 记录该状态
-        if (record_) {
-            action_list_.push_back(action);
-        }
-        
-        // 计算得分
-#if 0
-        
-        double route_score = action.length_;
-        double segment_score = 0;
-        for (int i = 0; i < action.path_.size(); ++i) {
-            int travel_count = tree_->GetRoadInfo(action.path_[i]).travel_counts_;
-            segment_score += travel_count;
-        }
-        
-        
-        double route_power = 1.0;
-        double route_k = -1.0;
-        double route_const = 500;
-        route_score = route_const + route_k * pow(route_score, route_power);
-        
-        double seg_power = 4;
-        double seg_k = 10;
-        double seg_const = 0;
-        segment_score = seg_const + seg_k * pow(segment_score, seg_power);
-        
-        score = dist_score + route_score + segment_score;
-        
-        if (!learning_) {
-            DebugUtility::Print(DebugUtility::Normal, "Score Summer: distance score = " +
-                                boost::lexical_cast<std::string>(dist_score) + ", length score = " +
-                                boost::lexical_cast<std::string>(route_score) + ", history score = " +
-                                boost::lexical_cast<std::string>(segment_score));
-        }
+        if (suitable_actions.size() == 0) {
+            // DebugUtility::Print(DebugUtility::Warning, "empty actions for state " + boost::lexical_cast<std::string>(state_index));
+            score = -1000000000.0;
+            next_state.gps_id_ = terminal_state_;
+        } else {
+            // 探索一个决策
+            Explore(state_index, action_index, epsilon_, suitable_actions);
+            Action action = index_to_action_.at(action_index);
+            
+            // 该决策导致状态转移
+            next_state.gps_id_ = action.to_gps_point_;
+            next_state.candidate_id_ = action.to_candiate_point_;
+            next_state_index = state_to_index_.at(next_state);
+            
+            // 记录该状态
+            if (record_) {
+                action_list_.push_back(action);
+            }
+            
+            // 计算得分
+#if 1
+            // 候选点评分
+            GPSPoint point = route_->getRouteVertex(action.to_gps_point_);
+            CandidatePoint cp = route_->getCandidatePoint(action.to_gps_point_, action.to_candiate_point_);
+            if (action.to_gps_point_ != cp.gps_point_id) {
+                DebugUtility::Print(DebugUtility::Error, "Error! Candidate point GPS point mismatch!");
+            }
+            double dist_score = GeometryUtility::Distance(point.x_, point.y_, cp.proj_x_, cp.proj_y_);
+            dist_score = 10000 - pow(dist_score, 2);
+            if (dist_score < 0)
+                dist_score = 0;
+            
+            // 候选路径评分
+            double route_score = 0;
+            
+            if (state_index != 0) {
+                for (int i = 0; i < action.trajectory_.size(); ++i) {
+                    int travel_count = tree_->GetRoadInfo(action.trajectory_[i]).travel_counts_;
+                    route_score += travel_count;
+                }
+                
+                if (action.trajectory_.size() == 0) {
+               //     std::cout << action.from_gps_point_ << "\t" << action.from_candidate_point_ << "\t" << action.to_gps_point_ << "\t" << action.to_candiate_point_ << std::endl;
+                    
+                    route_score = -10000000;
+                } else {
+                    route_score /= action.trajectory_.size();
+                }
+            }
+            
+            // 连通性评分
+            double connecty = 0;
+            if (next_state.gps_id_ != terminal_state_) {
+                std::vector<int> suitable_actions = suitable_actions_for_state_.at(next_state_index);
+                if (suitable_actions.size() == 0) {
+                    connecty = -10000000;
+                    
+                    next_state.gps_id_ = terminal_state_;
+                }
+            }
+            
+            score = 666.666 * route_score + dist_score + connecty;
+            
+          //  std::cout << "route score: " << route_score << "\t" << "distance score: " << dist_score << std::endl;
+#else
+            // 候选路径评分
+            double route_score = 0;
+            for (int i = 0; i < action.trajectory_.size(); ++i) {
+                int travel_count = tree_->GetRoadInfo(action.trajectory_[i]).travel_counts_;
+                route_score += travel_count;
+            }
+            route_score /= action.trajectory_.size();
+            score = route_score;
 #endif
-        // 候选点评分
-        double x1, y1;
-        GPSPoint point = route_->getRouteVertex(action.to_gps_point_);
-        double dist_score = GeometryUtility::Distance(point.x_, point.y_, x1, y1);
-        double dist_power = 2.0;
-        double dist_k = -1.0;
-        double dist_const = 100;
-        dist_score = dist_const + dist_k * pow(dist_score, dist_power);
-        
-        // 候选路径评分
-        double route_score = 0;
-        for (int i = 0; i < action.trajectory_.size(); ++i) {
-            int travel_count = tree_->GetRoadInfo(action.trajectory_[i]).travel_counts_;
-            route_score += travel_count;
         }
-        route_score /= action.trajectory_.size();
         
-        score = route_score + dist_score;
-        
+ //       std::cout << "score: " << score << std::endl;
         // 该状态是否是终止状态？
         if (next_state.gps_id_ == terminal_state_) {
             end_of_task = true;

@@ -16,8 +16,12 @@ RTree::RTree() {
 RTree::~RTree() {
 }
 
-bool RTree::Build(std::string node_file, std::string edge_file, std::string history_file, double xmin, double ymin, double xmax, double ymax) {
-    return (AddNodes(node_file, xmin, ymin, xmax, ymax) && AddEdges(edge_file, xmin, ymin, xmax, ymax) && AddGPSLogs(history_file, xmin, ymin, xmax, ymax) );
+bool RTree::BuildRoad(std::string node_file, std::string edge_file, double xmin, double ymin, double xmax, double ymax) {
+    return (AddNodes(node_file, xmin, ymin, xmax, ymax) && AddEdges(edge_file, xmin, ymin, xmax, ymax));
+}
+
+bool RTree::BuildTrajectory(std::string history_file, double xmin, double ymin, double xmax, double ymax) {
+    return AddGPSLogs(history_file, xmin, ymin, xmax, ymax);
 }
 
 std::vector<Value> RTree::Query(QueryType type, double xmin, double ymin, double xmax, double ymax) {
@@ -151,69 +155,113 @@ bool RTree::AddEdges(std::string map_dir, double xmin, double ymin, double xmax,
 bool RTree::AddGPSLogs(std::string map_dir, double xmin, double ymin, double xmax, double ymax) {
     DebugUtility::Print(DebugUtility::Normal, "Add GPS logs to Rtree...");
     
-        gps_trajectories_.clear();
-
-        OGRDataSource* data_source = OGRSFDriverRegistrar::Open(map_dir.c_str(), FALSE);
-        if (data_source == NULL) {
-            DebugUtility::Print(DebugUtility::Error, "Open " + map_dir + " fail!");
-            return false;
-        }
+    // split logs to small trajectory...
+    // In a trajectory, define:
+    double near_dist;
+    const double max_near_dist = 200;
+    // 1> distance between near points should no bigger than 200m
+    
+    double near_time;
+    const double max_near_time = 30;
+    // 2> time slamp between near points should no bigger than 30ms
+    
+    double stay_time = 0;
+    double max_stay_time = 60000;
+    // 3> points with 0 speed should not continue 1min
+    
+    double nodes_count = 0;
+    double max_nodes_count = 50;
+    // 4> a trajectory should contain less than 50 gps points
+    
+    OGRDataSource* data_source = OGRSFDriverRegistrar::Open(map_dir.c_str(), FALSE);
+    if (data_source == NULL) {
+        DebugUtility::Print(DebugUtility::Error, "Open " + map_dir + " fail!");
+        return false;
+    }
+    
+    OGRLayer* layer = data_source->GetLayer(0);
+    OGRFeature* feature = layer->GetNextFeature();
+    GPSTrajectory trajectory;
+    while (feature != NULL) {
+        // feature geometry
+        OGRGeometry *poGeometry;
+        poGeometry = feature->GetGeometryRef();
+        OGRPoint *poPoint = (OGRPoint*) poGeometry;
+        GPSPoint gps_point = {
+            poPoint->getX(), poPoint->getY(),
+            feature->GetFieldAsInteger("gpstime"),
+            feature->GetFieldAsInteger("head"),
+            feature->GetFieldAsInteger("speed")
+        };
         
-        OGRLayer* layer = data_source->GetLayer(0);
-        OGRFeature* feature = layer->GetNextFeature();
-        GPSTrajectory trajectory;
-        while (feature != NULL) {
-            // feature geometry
-            OGRGeometry *poGeometry;
-            poGeometry = feature->GetGeometryRef();
-            
-            int status = feature->GetFieldAsInteger("status");
-            if (status == 33280) {
-                OGRPoint *poPoint = (OGRPoint*) poGeometry;
-                GPSPoint gps_point = {
-                    poPoint->getX(), poPoint->getY(),
-                    feature->GetFieldAsInteger("gpstime"),
-                    feature->GetFieldAsInteger("head"),
-                    feature->GetFieldAsInteger("speed")
-                };
-                
-                if (trajectory.size() > 0) {
-                    GPSPoint pre_pt = trajectory[trajectory.size() - 1];
-                    double dist = GeometryUtility::Distance(pre_pt.x_, pre_pt.y_, gps_point.x_, gps_point.y_);
-                    if (dist > DIST_THD) {
-                        trajectory.push_back(gps_point);
-                    }
-                } else {
-                    trajectory.push_back(gps_point);
-                }
-            } else {
-                if (trajectory.size() > 10) {
-                    this->InsertGPSTrajectory(trajectory);
-#if 0
-                    std::cout << "insert a gps trajectory: ";
-                    for (int i = 0; i < trajectory.size(); ++i) {
-                        std::cout << trajectory[i].t_ << "\t";
-                    }
-                    std::cout << std::endl;
-#endif
-                    trajectory.clear();
-                }
+        //int status = feature->GetFieldAsInteger("status");
+        // Judge whether we should create a new trajectory
+        if (trajectory.size() == 0) {
+            trajectory.push_back(gps_point);
+            ++nodes_count;
+        } else {
+            GPSPoint last_pt = trajectory[trajectory.size() - 1];
+            near_dist = GeometryUtility::Distance(last_pt.x_, last_pt.y_, gps_point.x_, gps_point.y_);
+            near_time = gps_point.t_ - last_pt.t_;
+            if (last_pt.speed_ == 0 && gps_point.speed_ == 0) {
+                stay_time += near_time;
             }
             
-            OGRFeature::DestroyFeature (feature);
-            feature = layer->GetNextFeature();
+            if (near_dist > max_near_dist || near_time > max_near_time || stay_time > max_stay_time || nodes_count > max_nodes_count) {
+                DebugUtility::Print(DebugUtility::Verbose, "Start a new trajectory with: near dist = " +
+                                    boost::lexical_cast<std::string>(near_dist) +  " near time = " +
+                                    boost::lexical_cast<std::string>(near_time) + " stay time = " +
+                                    boost::lexical_cast<std::string>(stay_time) + " nodes count = " +
+                                    boost::lexical_cast<std::string>(nodes_count));
+                
+                // start to record a new trajectory
+                gps_trajectories_.insert(std::make_pair(trajectories_count_, trajectory));
+                ++trajectories_count_;
+                trajectory.clear();
+                stay_time = 0;
+                nodes_count = 0;
+            } else {
+                trajectory.push_back(gps_point);
+                ++nodes_count;
+            }
         }
+        
+        OGRFeature::DestroyFeature (feature);
+        feature = layer->GetNextFeature();
+    }
     
     DebugUtility::Print(DebugUtility::Normal, "Add " + boost::lexical_cast<std::string>(trajectories_count_) + " trajectories.");
-        return true;
+    
+    return true;
 }
 
 void RTree::InsertMatchedTrajectory(std::vector<int> traj, int id) {
     matched_trajectories_.insert(std::make_pair(id, traj));
     
+    double xmin, ymin, xmax, ymax;
     for (int i = 0; i < traj.size(); ++i) {
+        // update edge polulaty
         this->TravelEdge(traj[i]);
+        
+        BoostLineString line = edges_.at(traj[i]);
+        BoostBox b = bg::return_envelope<BoostBox>(line);
+        
+        if (i == 0) {
+            xmin = b.min_corner().get<0>();
+            ymin = b.min_corner().get<1>();
+            xmax = b.max_corner().get<0>();
+            ymax = b.max_corner().get<1>();
+        } else {
+            xmin = xmin > b.min_corner().get<0>() ? b.min_corner().get<0>() : xmin;
+            ymin = ymin > b.min_corner().get<1>() ? b.min_corner().get<1>() : ymin;
+            xmax = xmax < b.max_corner().get<0>() ? b.max_corner().get<0>() : xmax;
+            ymax = ymax < b.max_corner().get<1>() ? b.max_corner().get<1>() : ymax;
+        }
     }
+    
+    // update trajectory tree
+    BoostBox bb(BoostPoint(xmin, ymin), BoostPoint(xmax, ymax));
+    trajectory_tree_.insert(std::make_pair(bb, id));
 }
 
 void RTree::InsertNode(double x, double y, VertexProperties info) {
@@ -269,23 +317,6 @@ void RTree::InsertRoad(double x1, double y1, double x2, double y2, EdgePropertie
     edge_tree_.insert(std::make_pair(b, edge_count_));
     
     edge_count_++;
-}
-
-void RTree::InsertGPSTrajectory(GPSTrajectory trajectory) {
-    if (trajectory.size() <= 3)
-        return;
-    
-    BoostLineString line;
-    for (int i = 0; i < trajectory.size(); ++i) {
-        line.push_back(BoostPoint(trajectory[i].x_, trajectory[i].y_));
-    }
-    
-    BoostBox b = bg::return_envelope<BoostBox>(line);
-    trajectory_tree_.insert(std::make_pair(b, trajectories_count_));
-    
-    gps_trajectories_.insert(std::make_pair(trajectories_count_, trajectory));
-    
-    trajectories_count_++;
 }
 
 void RTree::PrintLine(int id) {
@@ -419,3 +450,12 @@ std::string RTree::GetMatchedTrajectoryAsGeoJson(int id) {
     return geojson;
 }
 
+double RTree::GetRoadLength(int id) {
+    BoostLineString line_string = edges_.at(id);
+    double x1 = line_string.at(0).get<0>();
+    double y1 = line_string.at(0).get<1>();
+    double x2 = line_string.at(1).get<0>();
+    double y2 = line_string.at(1).get<1>();
+    
+    return GeometryUtility::Distance(x1, y1, x2, y2);
+}

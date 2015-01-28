@@ -22,6 +22,7 @@ void MMDensity::Match() {
         if (!has_error_) {
             tree_->InsertMatchedTrajectory(matched, i);
         } else {
+            DebugUtility::Print(DebugUtility::Error, "Miss history trajectory " + boost::lexical_cast<std::string>(i));
             has_error_ = false;
         }
     }
@@ -347,6 +348,10 @@ void MMDensity::UpdateStart(int& start, int edge_id, int pre_edge) {
     }
     
     if (pre_edge == edge_id) {
+        return;
+    }
+    
+    if (!tree_->HasEdgeNode(edge_id)) {
         return;
     }
     

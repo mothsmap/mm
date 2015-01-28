@@ -74,6 +74,54 @@ void ShapefileGraph::UpdateEdgeOnVertex(int vertex_id, int edge_id) {
     }
 }
 
+bool ShapefileGraph::ShortestPath(int node1, int node2, std::vector<int>& path, double& dist) {
+    DebugUtility::Print(DebugUtility::Normal, "Compute the shortest path ...");
+    bool path_valid = true;
+    
+    std::pair<Graph::vertex_iterator, Graph::vertex_iterator> vertex_iterator_range = boost::vertices(graph_);
+    for (Graph::vertex_iterator from_vertex = vertex_iterator_range.first; from_vertex != vertex_iterator_range.second; ++from_vertex) {
+        if (graph_[*from_vertex].id_ != node1)
+            continue;
+        
+        // Create things for Dijkstra
+        std::vector<vertex_descriptor> parents(boost::num_vertices(graph_)); // To store parents
+        std::vector<double> distances(boost::num_vertices(graph_)); // To store distances
+        
+        boost::dijkstra_shortest_paths(graph_,
+                                       *(from_vertex),
+                                       boost::predecessor_map(&parents[0])
+                                       .distance_map(boost::make_iterator_property_map(distances.begin(),
+                                                                                       get(boost::vertex_index, graph_)))
+                                       .weight_map(get(&EdgeProperties::weight_, graph_)));
+        
+        for (Graph::vertex_iterator to_vertex = vertex_iterator_range.first; to_vertex != vertex_iterator_range.second; ++to_vertex) {
+            if (graph_[*to_vertex].id_ != node2) {
+                continue;
+            }
+            
+            dist = distances[*to_vertex];
+            
+            vertex_descriptor v = *to_vertex; // We want to start at the destination and work our way back to the source
+            for(vertex_descriptor u = parents[v]; // Start by setting 'u' to the destintaion node's predecessor
+                u != v; // Keep tracking the path until we get to the source
+                v = u, u = parents[v]) // Set the current vertex to the current predecessor, and the predecessor to one level up
+            {
+                std::pair<Graph::edge_descriptor, bool> edgePair = boost::edge(u, v, graph_);
+                Graph::edge_descriptor edge = edgePair.first;
+                
+                if (!edgePair.second) {
+                    path_valid = false;
+                    break;
+                }
+                path.push_back(graph_[edge].id_);
+            }
+        }
+        
+    }
+    
+    return path_valid;
+}
+
 void ShapefileGraph::PrintEdgesOnVertex() {
     for (auto iter = edges_on_vertex_.begin(); iter != edges_on_vertex_.end(); ++iter) {
         std::cout << "Node " << iter->first << " has edges: ";
@@ -93,19 +141,10 @@ void ShapefileGraph::Save(std::string filename) {
     oa & BOOST_SERIALIZATION_NVP(edges_on_vertex_);
     
     ofs.close();
-    
-//    std::ofstream ofs2(filename + "/node_edge.xml");
-//    boost::archive::xml_oarchive oa2(ofs2);
-//    oa2 & BOOST_SERIALIZATION_NVP(vertex_);
-//    
-// //   for (int i = 0; i < edges_on_vertex_.size(); ++i) {
-//        oa2 & BOOST_SERIALIZATION_NVP(edges_on_vertex_);
-// //   }
-//    
-//    ofs2.close();
 }
 
 void ShapefileGraph::Load(std::string filename) {
+    DebugUtility::Print(DebugUtility::Normal, "Loading graph...");
     std::ifstream ifs(filename);
     boost::archive::xml_iarchive ia(ifs);
     boost::serialization::load(ia, graph_, 0);
@@ -113,15 +152,9 @@ void ShapefileGraph::Load(std::string filename) {
     ia & BOOST_SERIALIZATION_NVP(vertex_);
     ia & BOOST_SERIALIZATION_NVP(edges_on_vertex_);
     
-    ifs.close();
+    DebugUtility::Print(DebugUtility::Verbose, "Loading " + boost::lexical_cast<std::string>(vertex_.size()) + " vertex.");
     
-//    std::ifstream ifs2(filename + "/node_edge.xml");
-//    boost::archive::xml_iarchive ia2(ifs2);
-//    ia2 >> BOOST_SERIALIZATION_NVP(vertex_);
-//
-//    ia2 >> BOOST_SERIALIZATION_NVP(edges_on_vertex_);
-//    
-//    ifs2.close();
+    ifs.close();
 }
 
 std::vector<int> ShapefileGraph::GetEdgeOnVertex(int id) {

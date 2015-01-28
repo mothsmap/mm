@@ -8,13 +8,16 @@
 #include "mm_graph.h"
 #include "mm_density_solver.h"
 
+#include <boost/timer/timer.hpp>
+
 using namespace std;
 
 // 数据目录存放着路网（edges.shp),结点(nodes.shp)和历史轨迹数据(history.shp)
-std::string data_dir = "/Volumes/second/mm_data";
-std::string node = data_dir + "/nodes.shp";
-std::string edge = data_dir + "/edges.shp";
-std::string history = data_dir + "/history.shp";
+std::string raw_dir = "/Volumes/second/mm_data/raw";
+std::string out_dir = "/Volumes/second/mm_data/prepare";
+std::string node = raw_dir + "/nodes.shp";
+std::string edge = raw_dir + "/edges.shp";
+std::string history = raw_dir + "/history.shp";
 
 boost::shared_ptr<RTree> tree = boost::shared_ptr<RTree>(new RTree);
 boost::shared_ptr<ShapefileGraph> graph = boost::shared_ptr<ShapefileGraph>(new ShapefileGraph(tree));
@@ -44,39 +47,62 @@ int main() {
     
     tree->LoadTrajectory(data_dir + "/trajectory.xml");
 #else
-    // 加载路网、结点、历史轨迹数据，以树的形式组织
-    if (!tree->Build(node, edge, history, xmin - expand, ymin - expand, xmax + expand, ymax + expand)) {
-        std::cout << "Build RTree fail!\n";
+    {
+        std::cout << "\nAdd Trajectory logs...\n";
+        boost::timer::auto_cpu_timer t;
         
-        return false;
+        if (!tree->BuildTrajectory(history, xmin - expand, ymin - expand, xmax + expand, ymax + expand)) {
+            std::cout << "Add Trajectory logs!\n";
+            
+            return false;
+        }
     }
     
-    // 建立图结构
-    if (!graph->Build(xmin - expand, ymin - expand, xmax + expand, ymax + expand)) {
-        std::cout << "Build Graph fail!\n";
-        
-        return false;
+    {
+        std::cout << "\nBuild RTree for road network...\n";
+        boost::timer::auto_cpu_timer t;
+        // 加载路网、结点、历史轨迹数据，以树的形式组织
+        if (!tree->BuildRoad(node, edge, xmin - expand, ymin - expand, xmax + expand, ymax + expand)) {
+            std::cout << "Build RTree for road network!\n";
+            
+            return false;
+        }
     }
     
-    // 对于每一条历史轨迹进行匹配
-    density_solver->Match();
-//    for (int i = 0; i < tree->trajectory_size(); ++i) {
-//        std::vector<int> matched_route = density_solver->Match(i);
-//        tree->InsertMatchedTrajectory(matched_route, i);
-//    }
+    {
+        std::cout << "\nBuild Graph for road network...\n";
+        boost::timer::auto_cpu_timer t;
+        // 建立图结构
+        if (!graph->Build(xmin - expand, ymin - expand, xmax + expand, ymax + expand)) {
+            std::cout << "Build Graph for road network!\n";
+            
+            return false;
+        }
+    }
     
-    graph->Save(data_dir + "/graph.xml");
-    tree->SaveRoad(data_dir + "/roads.xml");
-    tree->SaveTrajectory(data_dir + "/trajectory.xml");
+    {
+        std::cout << "\nMatch history trajectory...\n";
+        boost::timer::auto_cpu_timer t;
+        // 对于每一条历史轨迹进行匹配
+        density_solver->Match();
+    }
+    
+    {
+        std::cout << "\nSave..\n";
+        boost::timer::auto_cpu_timer t;
+        graph->Save(out_dir + "/graph.xml");
+        tree->SaveRoad(out_dir + "/roads.xml");
+        tree->SaveTrajectory(out_dir + "/trajectory.xml");
+    }
     
 #endif
     
-//    // 保存成GeoJson的格式
-//    std::string filename = data_dir + "/" + boost::lexical_cast<std::string>(0) + ".geojson";
-//    std::string json = tree->GetMatchedTrajectoryAsGeoJson(0);
-//    std::ofstream ofs(filename);
-//    ofs << json << std::endl;
-//    ofs.close();
+    //    // 保存成GeoJson的格式
+    //    std::string filename = data_dir + "/" + boost::lexical_cast<std::string>(0) + ".geojson";
+    //    std::string json = tree->GetMatchedTrajectoryAsGeoJson(0);
+    //    std::ofstream ofs(filename);
+    //    ofs << json << std::endl;
+    //    ofs.close();
     
     return 0;
 }

@@ -28,6 +28,8 @@ public:
     // 建立图
     bool Build(double minx, double miny, double maxx, double maxy);
 
+    bool ShortestPath(int node1, int node2, std::vector<int>& path, double& dist);
+    
     inline bool HasEdgeOnVertex(int id) { return edges_on_vertex_.find(id) != edges_on_vertex_.end(); }
     
     std::vector<int> GetEdgeOnVertex(int id);

@@ -27,7 +27,7 @@ set(Boost_USE_STATIC_LIBS 	 ON)
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME     OFF)
 
-find_package(Boost REQUIRED system thread filesystem date_time program_options log chrono serialization)
+find_package(Boost REQUIRED system thread filesystem date_time timer program_options log chrono serialization)
 
 
 # GDAL
