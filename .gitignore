@@ -26,3 +26,9 @@
 *.exe
 *.out
 *.app
+
+build/
+data/
+papers/
+lib/
+node_modules/
