@@ -152,6 +152,62 @@ bool RTree::AddEdges(std::string map_dir, double xmin, double ymin, double xmax,
     return true;
 }
 
+void RTree::InsertGPSTrajectory(GPSTrajectory trajectory) {
+    gps_trajectories_.insert(std::make_pair(trajectories_count_, trajectory));
+    ++trajectories_count_;
+}
+
+double RTree::get_trajectory_length(std::vector<int>& trajectory) {
+    double length = 0;
+    
+    for (int i = 0; i < trajectory.size(); ++i) {
+        int edge_id = trajectory[i];
+        BoostLineString line = edges_.at(edge_id);
+        double x1 = line.at(0).get<0>();
+        double y1 = line.at(0).get<1>();
+        double x2 = line.at(1).get<0>();
+        double y2 = line.at(1).get<1>();
+        length += GeometryUtility::Distance(x1, y1, x2, y2);
+    }
+    
+    return length;
+}
+
+std::vector<int> remove_repeat(std::vector<int>& ground_truth) {
+    std::vector<int> result;
+    result.push_back(ground_truth[0]);
+    
+    for (int i = 1; i < ground_truth.size(); ++i) {
+        if (result[result.size() - 1] != ground_truth[i]) {
+            result.push_back(ground_truth[i]);
+        }
+    }
+    
+    return result;
+}
+
+double RTree::CalculateAccurateRate(std::vector<int>& ground_truth, std::vector<int>& sample) {
+    std::vector<int> ground_truth_no_repeat = remove_repeat(ground_truth);
+    std::vector<int> sample_no_repeat = remove_repeat(sample);
+    std::vector<int> common_part;
+    
+    for (int i = 0; i < ground_truth_no_repeat.size(); ++i) {
+        for (int j = 0; j < sample_no_repeat.size(); ++j) {
+            if (ground_truth_no_repeat[i] == sample_no_repeat[j]) {
+                common_part.push_back(ground_truth_no_repeat[i]);
+                break;
+            }
+        }
+    }
+    
+    double ground_truth_length = get_trajectory_length(ground_truth_no_repeat);
+    double sample_length = get_trajectory_length(sample_no_repeat);
+    double max_length = ground_truth_length > sample_length ? ground_truth_length : sample_length;
+    double common_length = get_trajectory_length(common_part);
+    
+    return (common_length / max_length);
+}
+
 bool RTree::AddGPSLogs(std::string map_dir, double xmin, double ymin, double xmax, double ymax) {
     DebugUtility::Print(DebugUtility::Normal, "Add GPS logs to Rtree...");
     

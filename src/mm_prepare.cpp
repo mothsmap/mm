@@ -33,12 +33,27 @@ double expand = 1000.0;
 
 bool ParseCommandLine (int argc, char** argv);
 
+void Prepare();
+
 int main(int argc, char** argv) {
     if (!ParseCommandLine(argc, argv)) {
         std::cout << "Parse command line arguments fail!";
         return -1;
     }
     
+    try {
+        Prepare();
+    } catch (std::exception e) {
+        std::cout << "An error: " + boost::lexical_cast<std::string>(e.what()) << std::endl;
+    } catch (...) {
+        std::cout << "An unknow error!\n";
+        return -1;
+    }
+    
+    return 0;
+}
+
+void Prepare() {
     {
         std::cout << "\nAdd Trajectory logs...\n";
         boost::timer::auto_cpu_timer t;
@@ -86,8 +101,6 @@ int main(int argc, char** argv) {
         tree->SaveRoad(out + "/roads.xml");
         tree->SaveTrajectory(out + "/trajectory.xml");
     }
-    
-    return 0;
 }
 
 bool ParseCommandLine (int argc, char** argv) {
@@ -114,6 +127,7 @@ bool ParseCommandLine (int argc, char** argv) {
         
         if (variables_map.count ("edge")) {
             edge = variables_map["edge"].as<std::string>();
+            std::cout << "edge file: " << edge << std::endl;
         } else {
             std::cout << "\edge file is not specified!\n";
             std::cout << options_desc << std::endl;
@@ -122,6 +136,7 @@ bool ParseCommandLine (int argc, char** argv) {
         
         if (variables_map.count ("node")) {
             node = variables_map["node"].as<std::string>();
+            std::cout << "node file: " << node << std::endl;
         } else {
             std::cout << "\node file is not specified!\n";
             std::cout << options_desc << std::endl;
@@ -130,6 +145,7 @@ bool ParseCommandLine (int argc, char** argv) {
         
         if (variables_map.count ("history")) {
             history = variables_map["history"].as<std::string>();
+            std::cout << "history file: " << history << std::endl;
         } else {
             std::cout << "\nhistory file is not specified!\n";
             std::cout << options_desc << std::endl;
@@ -138,6 +154,7 @@ bool ParseCommandLine (int argc, char** argv) {
         
         if (variables_map.count ("out")) {
             out = variables_map["out"].as<std::string>();
+            std::cout << "out directory: " << out << std::endl;
         } else {
             std::cout << "\nout file is not specified!\n";
             std::cout << options_desc << std::endl;

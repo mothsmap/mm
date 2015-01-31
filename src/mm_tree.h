@@ -46,11 +46,14 @@ public:
     /************** 添加历史经验 **********************/
     void TravelEdge(int id);
     
+    double CalculateAccurateRate(std::vector<int>& ground_truth, std::vector<int>& sample);
+    
     /************** 获取信息 *************************/
     inline int edge_size() { return edge_count_; }
     inline int node_size() { return node_count_; }
     inline int trajectory_size() { return trajectories_count_; }
     
+    double get_trajectory_length(std::vector<int>& trajectory);
     inline BoostLineString GetEdge(int id) { return edges_.at(id); }
     inline BoostPoint GetNode(int id) { return nodes_.at(id); }
     inline GPSTrajectory& GetTrajectory(int id) { return gps_trajectories_.at(id); }

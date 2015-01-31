@@ -378,6 +378,19 @@ bool MM::parsing_result_valid() {
     return true;
 }
 
+std::vector<int> MM::get_learning_result() {
+    std::vector<int> result_edges;
+    
+    for (int i = 1; i < action_list_.size(); ++i) {
+        std::vector<int>& edges = action_list_[i].trajectory_;
+        for (int j = 0; j < edges.size(); ++j) {
+            result_edges.push_back(edges[j]);
+        }
+    }
+    
+    return result_edges;
+}
+
 void MM::SaveLearningResultAsGeojson(std::string filename) {
     std::string geojson = "{\"type\": \"FeatureCollection\",\"crs\": { \"type\": \"name\", \"properties\": { \"name\":\"urn:ogc:def:crs:EPSG::3857\" } },\"features\": [";
     

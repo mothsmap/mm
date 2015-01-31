@@ -75,6 +75,7 @@ public:
     bool parsing_result_valid();
     
     void SaveLearningResultAsGeojson(std::string filename);
+    std::vector<int> get_learning_result();
     
     void Clear();
 protected:

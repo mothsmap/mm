@@ -16,15 +16,21 @@ MMDensity::~MMDensity() {
 }
 
 void MMDensity::Match() {
-    int ntrajectories = tree_->trajectory_size();
-    for (int i = 0; i < ntrajectories; ++i) {
-        std::vector<int> matched = Match(i);
-        if (!has_error_) {
-            tree_->InsertMatchedTrajectory(matched, i);
-        } else {
-            DebugUtility::Print(DebugUtility::Error, "Miss history trajectory " + boost::lexical_cast<std::string>(i));
-            has_error_ = false;
+    try {
+        int ntrajectories = tree_->trajectory_size();
+        for (int i = 0; i < ntrajectories; ++i) {
+            std::vector<int> matched = Match(i);
+            if (!has_error_ && matched.size() > 0 ) {
+                tree_->InsertMatchedTrajectory(matched, i);
+            } else {
+                DebugUtility::Print(DebugUtility::Error, "Miss history trajectory " + boost::lexical_cast<std::string>(i));
+                has_error_ = false;
+            }
         }
+    } catch (std::exception e) {
+        DebugUtility::Print(DebugUtility::Error, "An exception " + boost::lexical_cast<std::string>(e.what()));
+    } catch (...) {
+        DebugUtility::Print(DebugUtility::Error, "An exception occurs!");
     }
 }
 
@@ -97,7 +103,7 @@ std::vector<int> MMDensity::Match(int trajectory_id) {
         }
         
         // 当前GPS点匹配的最佳得分
-        double best_score = -10000000000.0;
+        double best_score = std::numeric_limits<double>::min();
         
         // 最佳匹配边
         int best_edge_id = -1;
