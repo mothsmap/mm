@@ -16,7 +16,7 @@ set(Boost_USE_STATIC_LIBS 	 ON)
 set(Boost_USE_MULTITHREADED      ON)
 set(Boost_USE_STATIC_RUNTIME     OFF)
 
-find_package(Boost REQUIRED system thread filesystem date_time timer program_options log chrono serialization)
+find_package(Boost REQUIRED system thread filesystem date_time timer program_options log chrono serialization unit_test_framework)
 
 # GDAL
 find_package(GDAL REQUIRED)
@@ -56,8 +56,10 @@ target_link_libraries(mm_prepare mm ${COMMOM_LIBS})
 target_link_libraries(mm_match mm ${COMMOM_LIBS})
 
 if(BUILD_TESTS)
+  add_executable(mm_test_rtree_graph test/test_rtree_graph.cpp)
   add_executable(mm_test_density_solver test/test_density_solver.cpp)
   add_executable(mm_test_sparse_solver test/test_sparse_solver.cpp)
   target_link_libraries(mm_test_density_solver mm ${COMMOM_LIBS})
   target_link_libraries(mm_test_sparse_solver mm ${COMMOM_LIBS})
+  target_link_libraries(mm_test_rtree_graph mm ${COMMOM_LIBS})
 endif()

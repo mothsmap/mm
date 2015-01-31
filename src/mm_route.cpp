@@ -45,14 +45,6 @@ bool Route::Load(std::string filename) {
         feature = layer->GetNextFeature();
     }
     
-#if 1
-    std::cout << "Route: ";
-    for (int i = 0; i < route_.size(); ++i) {
-        std::cout << "( " << route_[i].x_ << ", " << route_[i].y_ << " )" << "\t";
-    }
-    std::cout << std::endl;
-#endif
-    
     candidate_sets_.resize(route_.size());
     
     return true;

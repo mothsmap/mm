@@ -48,11 +48,10 @@ private:
     
     boost::shared_ptr<RTree> tree_;
     
-    // vertex.id_ vs id(in graph)
-    std::map<int, int> vertex_;
-    
     // vertex.id_ vs edge ids
     std::map<int, std::vector<int> > edges_on_vertex_;
+    
+    std::map<int, vertex_descriptor> vertex_map_;
 };
 
 #endif
