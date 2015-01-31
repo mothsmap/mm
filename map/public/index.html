@@ -1,0 +1,80 @@
+<!DOCTYPE>
+<html>
+   <head>
+      <title>Map Matching</title>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link rel="stylesheet" type="text/css" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css">
+      <script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
+      <script type="text/javascript" src="leaflet-ajax/dist/leaflet.ajax.js"></script>
+      <script src="spin.js"></script>
+      <script src="Leaflet.Spin/leaflet.spin.js"></script>
+      <script src="http://code.jquery.com/jquery-1.10.2.min.js"></script>
+   </head>
+   <body style="margin: 0; padding:0; overflow: hidden; width: 100%; height: 100%">
+      <div id="map" style="width: 100%; height: 100%; background:#ccc"></div>
+      <div style="position: absolute; bottom: 0px; padding: 10px;">
+         <form action="/convert" enctype="multipart/form-data" method="post">
+            <p>
+               Open a trajectory:<br>
+               <input type="file" name="shpfile">
+            </p>
+            <p>
+               Type some text:<br>
+               <input type="text" name="data">
+            </p>
+            <input type="submit" value="Match">
+         </form>
+      </div>
+      <script type="text/javascript">
+         MB_ATTR = 'Map data &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, ' +
+        '<a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>, ' +
+        'Imagery © <a href="http://mapbox.com">Mapbox</a>';
+
+        MB_URL = 'http://{s}.tiles.mapbox.com/v3/{id}/{z}/{x}/{y}.png';
+
+        OSM_URL = 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+        OSM_ATTRIB = '&copy; <a href="http://openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+
+         var map = L.map('map', {crs: L.CRS.EPSG3857}).setView([51.505, -0.09], 0);
+         
+         var basemap = L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
+          maxZoom: 18,
+          attribution: OSM_ATTRIB
+         });
+         basemap.addTo(map);
+         
+         $.getJSON('input.geojson', function(data) {
+          var geojsonMarkerOptions = {
+           // radius: 1,
+           // fillColor: "#0000FF",
+           // color: "#ff7800",
+           // weight: 1,
+           // opacity: 0,
+           // fillOpacity: 0.6
+
+           radius: 10
+           fillColor: "#ff7800",
+           color: "#000",
+           weight: 1,
+           opacity: 1.0,
+           fillOpacity: 0.8
+         };
+         
+         var geojson = L.geoJson(data, {
+           pointToLayer: function (feature, latlng) {
+               return L.circleMarker(latlng, geojsonMarkerOptions);
+            }
+           });
+         
+         geojson.addTo(map);
+         });
+         
+         $.getJSON('output.geojson', function(data) {
+            var matched = L.geoJson(data, {});
+         
+          matched.addTo(map);
+         });
+         
+      </script>
+   </body>
+</html>

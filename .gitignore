@@ -27,9 +27,8 @@
 *.out
 *.app
 
-3rd/
 build/
-map/
-route/
-sjz/
+data/
 papers/
+lib/
+node_modules/
