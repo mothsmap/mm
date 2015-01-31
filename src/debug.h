@@ -5,7 +5,7 @@
 #include <iostream>
 #include <string>
 
-#define DebugVerbose 2
+#define DebugVerbose 3
 
 class DebugUtility {
 private:

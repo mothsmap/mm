@@ -295,7 +295,7 @@ void RTree::InsertRoad(double x1, double y1, double x2, double y2, EdgePropertie
         return ;
     }
     
-    DebugUtility::Print(DebugUtility::Normal, "insert a road");
+ //   DebugUtility::Print(DebugUtility::Normal, "insert a road");
     
     edge_info_.insert(std::make_pair(edge_count_, info));
     
