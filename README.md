@@ -20,7 +20,7 @@ libraries from source. All libraries should be available in all distributions.
  - Third party libraries.
 
 
-- __CMakeLists.txt __
+- __CMakeLists.txt__
 
  - CMake file.
 
