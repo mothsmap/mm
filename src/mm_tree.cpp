@@ -169,10 +169,6 @@ bool RTree::AddGPSLogs(std::string map_dir, double xmin, double ymin, double xma
     double max_stay_time = 60000;
     // 3> points with 0 speed should not continue 1min
     
-    double nodes_count = 0;
-    double max_nodes_count = 50;
-    // 4> a trajectory should contain less than 50 gps points
-    
     OGRDataSource* data_source = OGRSFDriverRegistrar::Open(map_dir.c_str(), FALSE);
     if (data_source == NULL) {
         DebugUtility::Print(DebugUtility::Error, "Open " + map_dir + " fail!");
@@ -198,7 +194,6 @@ bool RTree::AddGPSLogs(std::string map_dir, double xmin, double ymin, double xma
         // Judge whether we should create a new trajectory
         if (trajectory.size() == 0) {
             trajectory.push_back(gps_point);
-            ++nodes_count;
         } else {
             GPSPoint last_pt = trajectory[trajectory.size() - 1];
             near_dist = GeometryUtility::Distance(last_pt.x_, last_pt.y_, gps_point.x_, gps_point.y_);
@@ -207,22 +202,19 @@ bool RTree::AddGPSLogs(std::string map_dir, double xmin, double ymin, double xma
                 stay_time += near_time;
             }
             
-            if (near_dist > max_near_dist || near_time > max_near_time || stay_time > max_stay_time || nodes_count > max_nodes_count) {
+            if (near_dist > max_near_dist || near_time > max_near_time || stay_time > max_stay_time) {
                 DebugUtility::Print(DebugUtility::Verbose, "Start a new trajectory with: near dist = " +
                                     boost::lexical_cast<std::string>(near_dist) +  " near time = " +
                                     boost::lexical_cast<std::string>(near_time) + " stay time = " +
-                                    boost::lexical_cast<std::string>(stay_time) + " nodes count = " +
-                                    boost::lexical_cast<std::string>(nodes_count));
+                                    boost::lexical_cast<std::string>(stay_time));
                 
                 // start to record a new trajectory
                 gps_trajectories_.insert(std::make_pair(trajectories_count_, trajectory));
                 ++trajectories_count_;
                 trajectory.clear();
                 stay_time = 0;
-                nodes_count = 0;
             } else {
                 trajectory.push_back(gps_point);
-                ++nodes_count;
             }
         }
         

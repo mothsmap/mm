@@ -18,11 +18,7 @@
                Open a trajectory:<br>
                <input type="file" name="shpfile">
             </p>
-            <p>
-               Type some text:<br>
-               <input type="text" name="data">
-            </p>
-            <input type="submit" value="Match">
+              <input type="submit" value="Match">
          </form>
       </div>
       <script type="text/javascript">
@@ -42,34 +38,46 @@
           attribution: OSM_ATTRIB
          });
          basemap.addTo(map);
-         
-         $.getJSON('input.geojson', function(data) {
-          var geojsonMarkerOptions = {
-           // radius: 1,
-           // fillColor: "#0000FF",
-           // color: "#ff7800",
-           // weight: 1,
-           // opacity: 0,
-           // fillOpacity: 0.6
 
-           radius: 10
-           fillColor: "#ff7800",
-           color: "#000",
+	 $.getJSON('density2.geojson', function(data) {
+          var geojsonMarkerOptions = {
+           radius: 5,
+           fillColor: "#0000FF",
+           color: "#ff7800",
            weight: 1,
            opacity: 1.0,
            fillOpacity: 0.8
          };
-         
-         var geojson = L.geoJson(data, {
+        
+         var density = L.geoJson(data, {
            pointToLayer: function (feature, latlng) {
                return L.circleMarker(latlng, geojsonMarkerOptions);
             }
            });
          
-         geojson.addTo(map);
+         density.addTo(map);
+         });
+	 
+         $.getJSON('sparse2.geojson', function(data) {
+          var geojsonMarkerOptions = {
+           radius: 10,
+           fillColor: "#ff7800",
+           color: "#000",
+           weight: 1,
+           opacity: 1.0,
+           fillOpacity: 0.8
+	  };
+         
+         var sparse = L.geoJson(data, {
+           pointToLayer: function (feature, latlng) {
+               return L.circleMarker(latlng, geojsonMarkerOptions);
+            }
+           });
+         
+         sparse.addTo(map);
          });
          
-         $.getJSON('output.geojson', function(data) {
+         $.getJSON('match2.geojson', function(data) {
             var matched = L.geoJson(data, {});
          
           matched.addTo(map);
