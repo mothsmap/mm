@@ -46,11 +46,13 @@ public:
     // 更新当前匹配边的起点
     void UpdateStart(int& start, int edge_id, int pre_edge);
     
+    inline void set_dist_parameter(double dist) { dist_parameter_ = dist; }
 private:
     boost::shared_ptr<RTree> tree_;
     boost::shared_ptr<ShapefileGraph> shapefile_graph_;
     int match_id_;
     bool has_error_;
+    double dist_parameter_;
 };
 
 #endif

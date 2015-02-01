@@ -9,6 +9,7 @@ MMDensity::MMDensity(boost::shared_ptr<RTree> rtree, boost::shared_ptr<Shapefile
     tree_ = rtree;
     shapefile_graph_ = shapefile_graph;
     has_error_ = false;
+    dist_parameter_ = 150;
 }
 
 MMDensity::~MMDensity() {
@@ -40,7 +41,7 @@ std::vector<int> MMDensity::Match(int trajectory_id) {
     
     std::vector<int> matched;
     
-    const int advance_size = 3;
+    int advance_size = 3;
     
     // GPS 点序列
     // GPSTrajectory& points = route_->getRoute();
@@ -52,8 +53,7 @@ std::vector<int> MMDensity::Match(int trajectory_id) {
     int current_gps = 0;
     
     // 初始化：当前GPS点邻近的边集， 100米内的邻近边
-    int step_size = 100;
-    std::vector<Value> edge_value_set = tree_->Query(EDGE, trajectory[0].x_ - step_size, trajectory[0].y_ - step_size, trajectory[0].x_ + step_size, trajectory[0].y_ + step_size);
+    std::vector<Value> edge_value_set = tree_->Query(EDGE, trajectory[0].x_ - dist_parameter_, trajectory[0].y_ - dist_parameter_, trajectory[0].x_ + dist_parameter_, trajectory[0].y_ + dist_parameter_);
     if (edge_value_set.size() == 0) {
         DebugUtility::Print(DebugUtility::Error, "Initialize edge set fail!");
         std::cout << "(x, y, t) = (" << trajectory[0].x_ << ", " << trajectory[0].y_ << ", " << trajectory[0].t_ << ")\n";
@@ -123,11 +123,19 @@ std::vector<int> MMDensity::Match(int trajectory_id) {
             this->MatchPoint2Edge(current_gps, edge_set[i], pre_edge, score, advance, start);
             DebugUtility::Print(DebugUtility::Normal, "\t Match GPS point " + boost::lexical_cast<std::string>(current_gps) + " to edge... score = " + boost::lexical_cast<std::string>(score) + ", start = " + boost::lexical_cast<std::string>(start));
             
-            // 往前探索3步
+            // 往前探索
             int pre_edge_inside = edge_set[i];
             int current_gps_inside = current_gps;
             int start_inside = start;
             bool advance_inside = advance;
+            
+
+            if (trajectory.size() - current_gps > 3) {
+                advance_size = 3;
+            } else {
+                advance_size = trajectory.size() - current_gps - 1;
+            }
+            
             for (int i = 1; i <= advance_size; ++i) {
                 DebugUtility::Print(DebugUtility::Normal, "\t\t Advance step " + boost::lexical_cast<std::string>(i));
                 
@@ -204,12 +212,12 @@ void MMDensity::MatchPoint2Edge(int point_id, int edge, int pre_edge, double& sc
     // s = sd + sa
     // sd(pi, ci) = ud - a * d(pi, ci)^nd
     // sa(pi, ci) = ua * cos(ai,j)^na
-    double ud = 400; // 10
     double a = 0.17;
     double nd = 1.4;
+    double ud = a * pow(dist_parameter_, 1.4); // 10
     
-    double ua = 100; // 10
-    double na = 4;
+    double ua = ud; // 10
+    double na = 3;  // 必须是奇数
     
     // GPS 点
     double x, y, pre_x, pre_y;
