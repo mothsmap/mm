@@ -28,6 +28,8 @@ set(COMMOM_LIBS ${GDAL_LIBRARY} ${Boost_LIBRARIES} )
 set(algorithm_src
   src/geometry.h
   src/debug.h
+  src/mm.h
+  src/mm.cpp
   src/mm_route.h
   src/mm_route.cpp
   src/mm_tree.h

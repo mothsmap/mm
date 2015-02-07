@@ -123,6 +123,43 @@ void Match() {
         boost::shared_ptr<MMDensity> density_solver = boost::shared_ptr<MMDensity>(new MMDensity(tree, graph));
         std::vector<int> ground_truth_edges = density_solver->Match(ground_truth_id);
         
+        std::cout << "ground truth: ";
+        for (int i = 0; i < ground_truth_edges.size(); ++i) {
+            std::cout << ground_truth_edges[i] << "\t";
+        }
+        std::cout << std::endl;
+        
+        std::cout << "Learning result: ";
+        for (int i = 0; i < matched_edges.size(); ++i) {
+            std::cout << matched_edges[i] << "\t";
+        }
+        std::cout << std::endl;
+        // save ground truth
+        std::string geojson = "{\"type\": \"FeatureCollection\",\"crs\": { \"type\": \"name\", \"properties\": { \"name\":\"urn:ogc:def:crs:EPSG::3857\" } },\"features\": [";
+        
+        
+        
+        for (int j = 0; j < ground_truth_edges.size(); ++j) {
+            BoostLineString line = tree->GetEdge(ground_truth_edges[j]);
+            
+            double x1 = line.at(0).get<0>();
+            double y1 = line.at(0).get<1>();
+            double x2 = line.at(1).get<0>();
+            double y2 = line.at(1).get<1>();
+            
+            geojson += "{\"type\": \"Feature\", \"geometry\": {\"type\": \"LineString\", \"coordinates\": [[" + boost::lexical_cast<std::string>(x1) + "," + boost::lexical_cast<std::string>(y1) + + "], [" + boost::lexical_cast<std::string>(x2) + "," + boost::lexical_cast<std::string>(y2) + + "]]}}";
+            
+            if (j != ground_truth_edges.size() - 1)
+                geojson += ",";
+        }
+        geojson += "]}";
+        
+        std::ofstream ofs("data/ground_truth.geojson");
+        ofs << geojson << std::endl;
+        ofs.close();
+        
+        
+        
         double accurate_rate = tree->CalculateAccurateRate(ground_truth_edges, matched_edges);
         
         std::cout << "\n\nAccurate rate: " << accurate_rate << std::endl;

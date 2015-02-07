@@ -61,7 +61,7 @@ void Prepare() {
         if (!tree->BuildTrajectory(history, xmin - expand, ymin - expand, xmax + expand, ymax + expand)) {
             std::cout << "Add Trajectory logs fail!\n";
             
-            return false;
+            return ;
         }
     }
     
@@ -72,7 +72,7 @@ void Prepare() {
         if (!tree->BuildRoad(node, edge, xmin - expand, ymin - expand, xmax + expand, ymax + expand)) {
             std::cout << "Build RTree for road network!\n";
             
-            return false;
+            return ;
         }
     }
     
@@ -83,7 +83,7 @@ void Prepare() {
         if (!graph->Build(xmin - expand, ymin - expand, xmax + expand, ymax + expand)) {
             std::cout << "Build Graph for road network!\n";
             
-            return false;
+            return ;
         }
     }
     

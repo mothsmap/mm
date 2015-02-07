@@ -191,10 +191,10 @@ double RTree::CalculateAccurateRate(std::vector<int>& ground_truth, std::vector<
     std::vector<int> sample_no_repeat = remove_repeat(sample);
     std::vector<int> common_part;
     
-    for (int i = 0; i < ground_truth_no_repeat.size(); ++i) {
-        for (int j = 0; j < sample_no_repeat.size(); ++j) {
-            if (ground_truth_no_repeat[i] == sample_no_repeat[j]) {
-                common_part.push_back(ground_truth_no_repeat[i]);
+    for (int i = 0; i < sample_no_repeat.size(); ++i) {
+        for (int j = 0; j < ground_truth_no_repeat.size(); ++j) {
+            if (ground_truth_no_repeat[j] == sample_no_repeat[i]) {
+                common_part.push_back(ground_truth_no_repeat[j]);
                 break;
             }
         }
@@ -202,10 +202,10 @@ double RTree::CalculateAccurateRate(std::vector<int>& ground_truth, std::vector<
     
     double ground_truth_length = get_trajectory_length(ground_truth_no_repeat);
     double sample_length = get_trajectory_length(sample_no_repeat);
-    double max_length = ground_truth_length > sample_length ? ground_truth_length : sample_length;
+    double min_length = ground_truth_length < sample_length ? ground_truth_length : sample_length;
     double common_length = get_trajectory_length(common_part);
     
-    return (common_length / max_length);
+    return (common_length / min_length);
 }
 
 bool RTree::AddGPSLogs(std::string map_dir, double xmin, double ymin, double xmax, double ymax) {
