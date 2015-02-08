@@ -36,6 +36,8 @@ public:
     void SaveTrajectory(std::string filename);
     void LoadTrajectory(std::string filename);
     
+    void SaveSplitedTrajectory(std::string filename);
+    
     /************** 查询函数 *************************/
     // 根据范围查询
     std::vector<Value> Query(QueryType type, double xmin, double ymin, double xmax, double ymax);

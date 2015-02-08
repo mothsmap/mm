@@ -62,6 +62,8 @@ void Prepare() {
             std::cout << "Add Trajectory logs fail!\n";
             
             return ;
+        } else {
+            tree->SaveSplitedTrajectory(out);
         }
     }
     

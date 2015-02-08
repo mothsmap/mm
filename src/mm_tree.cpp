@@ -2,6 +2,7 @@
 #include "mm_tree.h"
 #include <fstream>
 #include "ogrsf_frmts.h"
+#include <boost/filesystem.hpp>
 
 #define DIST_THD 10
 
@@ -108,7 +109,7 @@ bool RTree::AddEdges(std::string map_dir, double xmin, double ymin, double xmax,
     DebugUtility::Print(DebugUtility::Normal, "Add edges to Rtree...");
     edges_.clear();
     edge_tree_.clear();
-
+    
     OGRDataSource* data_source = OGRSFDriverRegistrar::Open(map_dir.c_str(), FALSE);
     if (data_source == NULL) {
         DebugUtility::Print(DebugUtility::Error, "Open " + map_dir + " fail!");
@@ -143,7 +144,7 @@ bool RTree::AddEdges(std::string map_dir, double xmin, double ymin, double xmax,
         };
         
         this->InsertRoad(start.getX(), start.getY(), end.getX(), end.getY(), info);
-       
+        
         OGRFeature::DestroyFeature (feature);
         feature = layer->GetNextFeature();
     }
@@ -246,8 +247,6 @@ bool RTree::AddGPSLogs(std::string map_dir, double xmin, double ymin, double xma
             feature->GetFieldAsInteger("speed")
         };
         
-        //int status = feature->GetFieldAsInteger("status");
-        // Judge whether we should create a new trajectory
         if (trajectory.size() == 0) {
             trajectory.push_back(gps_point);
         } else {
@@ -265,10 +264,19 @@ bool RTree::AddGPSLogs(std::string map_dir, double xmin, double ymin, double xma
                                     boost::lexical_cast<std::string>(stay_time));
                 
                 // start to record a new trajectory
-                gps_trajectories_.insert(std::make_pair(trajectories_count_, trajectory));
-                ++trajectories_count_;
+                if (trajectory.size() == 0) {
+                    std::cout << "Warning: trajectory is empty!\n";
+                }
+                
+                if (trajectory.size() > 3) {
+                    gps_trajectories_.insert(std::make_pair(trajectories_count_, trajectory));
+                    ++trajectories_count_;
+                }
+                
                 trajectory.clear();
                 stay_time = 0;
+                near_dist = 0;
+                near_time = 0;
             } else {
                 trajectory.push_back(gps_point);
             }
@@ -351,7 +359,7 @@ void RTree::InsertRoad(double x1, double y1, double x2, double y2, EdgePropertie
         return ;
     }
     
- //   DebugUtility::Print(DebugUtility::Normal, "insert a road");
+    //   DebugUtility::Print(DebugUtility::Normal, "insert a road");
     
     edge_info_.insert(std::make_pair(edge_count_, info));
     
@@ -506,4 +514,36 @@ double RTree::GetRoadLength(int id) {
     double y2 = line_string.at(1).get<1>();
     
     return GeometryUtility::Distance(x1, y1, x2, y2);
+}
+
+void RTree::SaveSplitedTrajectory(std::string filename) {
+    filename += "/split";
+    boost::filesystem::path p(filename);
+    if (!boost::filesystem::exists(p)) {
+        boost::filesystem::create_directories(p);
+    }
+    for (int i = 0; i < gps_trajectories_.size(); ++i) {
+        GPSTrajectory t = gps_trajectories_.at(i);
+        if (t.size() < 3) {
+            std::cout << "Trajectory too short!\n";
+        }
+        
+        std::string t_name = filename + "/" + boost::lexical_cast<std::string>(i) + ".geojson";
+        std::string geojson = "{\"type\": \"FeatureCollection\",\"crs\": { \"type\": \"name\", \"properties\": { \"name\":\"urn:ogc:def:crs:EPSG::3857\" } },\"features\": [";
+        
+        for (int j = 0; j < t.size(); ++j) {
+            GPSPoint p = t[j];
+            
+            geojson += "{\"type\": \"Feature\", \"properties\": { \"GPSTIME\": " + boost::lexical_cast<std::string>(p.t_) +  ", \"HEAD\": " + boost::lexical_cast<std::string>(p.head_) + ", \"SPEED\": " + boost::lexical_cast<std::string>(p.speed_) + " }, \"geometry\": {\"type\": \"Point\", \"coordinates\": [" + boost::lexical_cast<std::string>(p.x_) + "," + boost::lexical_cast<std::string>(p.y_) + "]}}";
+            
+            if (j != t.size() - 1)
+                geojson += ",";
+        }
+        
+        geojson += "]}";
+        
+        std::ofstream ofs(t_name);
+        ofs << geojson << std::endl;
+        ofs.close();
+    }
 }

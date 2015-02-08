@@ -24,7 +24,7 @@ public:
     // score: 得分
     // inside: 该点匹配到边的内部还是端点
     // start_x, start_y: 即是输入也是输出，输入表示当前匹配边的起点，输出表示下一条边的起点
-    void MatchPoint2Edge(int point_id, int edge, int pre_edge, double& score, bool& inside, int& start);
+    bool MatchPoint2Edge(int point_id, int edge, int pre_edge, double& score, bool& inside, int& start);
 
     // 匹配一个GPS点到候选边集中的一条边
     // point_id: GPS点的id
@@ -33,7 +33,7 @@ public:
     // inside: 该点匹配到边的内部还是端点
     // edge_id: 匹配到的边的id
     // start_x, start_y: 即是输入也是输出，输入表示当前匹配边的起点，输出表示下一条边的起点
-    void MatchPoint2EdgeSet(int point_id, std::vector<int>& edges, int pre_edge, double& score, bool& inside, int& edge_id, int& start);
+    bool MatchPoint2EdgeSet(int point_id, std::vector<int>& edges, int pre_edge, double& score, bool& inside, int& edge_id, int& start);
     
     // 更新当前GPS点和候选边集
     // inside: 该点匹配到边的内部还是端点
